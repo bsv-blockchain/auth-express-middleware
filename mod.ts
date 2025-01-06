@@ -1,0 +1,1 @@
+export { createAuthMiddleware } from "./src/index.js"

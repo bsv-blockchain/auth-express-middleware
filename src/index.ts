@@ -13,7 +13,7 @@ import {
 } from '@bsv/sdk'
 
 // Developers may optionally provide a handler for incoming certificates.
-interface AuthMiddlewareOptions {
+export interface AuthMiddlewareOptions {
   wallet: Wallet
   sessionManager?: SessionManager // Optional if dev wants custom SessionManager
   allowUnauthenticated?: boolean
@@ -21,7 +21,7 @@ interface AuthMiddlewareOptions {
   onCertificatesReceived?: (senderPublicKey: string, certs: VerifiableCertificate[], req: Request, res: Response, next: NextFunction) => void
 }
 
-class ExpressTransport implements Transport {
+export class ExpressTransport implements Transport {
   peer?: Peer
   allowAuthenticated: boolean
   openNonGeneralHandles: Record<string, Response[]> = {}
@@ -67,9 +67,9 @@ class ExpressTransport implements Transport {
         responseHeaders['x-bsv-auth-version'] = message.version
         responseHeaders['x-bsv-auth-message-type'] = message.messageType
         responseHeaders['x-bsv-auth-identity-key'] = message.identityKey
-        responseHeaders['x-bsv-auth-nonce'] = message.nonce
-        responseHeaders['x-bsv-auth-your-nonce'] = message.yourNonce
-        responseHeaders['x-bsv-auth-signature'] = Utils.toHex(message.signature)
+        responseHeaders['x-bsv-auth-nonce'] = message.nonce!
+        responseHeaders['x-bsv-auth-your-nonce'] = message.yourNonce!
+        responseHeaders['x-bsv-auth-signature'] = Utils.toHex(message.signature!)
 
         if (message.requestedCertificates) {
           responseHeaders['x-bsv-auth-requested-certificates'] = JSON.stringify(message.requestedCertificates)
@@ -114,9 +114,9 @@ class ExpressTransport implements Transport {
 
       responseHeaders['x-bsv-auth-version'] = message.version
       responseHeaders['x-bsv-auth-identity-key'] = message.identityKey
-      responseHeaders['x-bsv-auth-nonce'] = message.nonce
-      responseHeaders['x-bsv-auth-your-nonce'] = message.yourNonce
-      responseHeaders['x-bsv-auth-signature'] = Utils.toHex(message.signature)
+      responseHeaders['x-bsv-auth-nonce'] = message.nonce!
+      responseHeaders['x-bsv-auth-your-nonce'] = message.yourNonce!
+      responseHeaders['x-bsv-auth-signature'] = Utils.toHex(message.signature!)
       responseHeaders['x-bsv-auth-request-id'] = requestId
 
       if (message.requestedCertificates) {
@@ -175,12 +175,15 @@ class ExpressTransport implements Transport {
    */
   public handleIncomingRequest(req: Request, res: Response, next: NextFunction, onCertificatesReceived?: (senderPublicKey: string, certs: VerifiableCertificate[], req: Request, res: Response, next: NextFunction) => void): void {
     try {
+      if (!this.peer) {
+        throw new Error('You must set a Peer before you can handle incoming requests!')
+      }
       if (req.path === '/.well-known/auth') {
         // Non-general message
         const message = req.body as AuthMessage
 
         // Get a the request id
-        let requestId = req.headers['x-bsv-auth-request-id']
+        let requestId = req.headers['x-bsv-auth-request-id'] as string
         if (!requestId) {
           requestId = message.identityKey
         }
@@ -241,12 +244,12 @@ class ExpressTransport implements Transport {
               if (senderPublicKey !== req.headers['x-bsv-auth-identity-key']) return
               const requestId = Utils.toBase64(new Utils.Reader(payload).read(32))
               if (requestId === req.headers['x-bsv-auth-request-id']) {
-                this.peer.stopListeningForGeneralMessages(listenerId)
+                this.peer?.stopListeningForGeneralMessages(listenerId)
                 req.auth = { identityKey: senderPublicKey }
 
                 let responseStatus = 200
                 let responseHeaders = {}
-                let responseBody = []
+                let responseBody: number[] = []
 
                 // Override methods
                 res.__status = res.status
@@ -281,7 +284,7 @@ class ExpressTransport implements Transport {
                 const buildResponse = async (): Promise<void> => {
                   const payload = buildResponsePayload(requestId, responseStatus, responseHeaders, responseBody, req)
                   this.openGeneralHandles[requestId] = res
-                  await this.peer.toPeer(payload, req.headers['x-bsv-auth-identity-key'])
+                  await this.peer?.toPeer(payload, req.headers['x-bsv-auth-identity-key'])
                 }
 
                 res.__send = res.send
@@ -341,10 +344,10 @@ class ExpressTransport implements Transport {
                   } else {
                     this.openNonGeneralHandles[identityKey] = [res]
                   }
-                  await this.peer.requestCertificates(certsToRequest, identityKey)
+                  await this.peer?.requestCertificates(certsToRequest, identityKey)
                 }
 
-                if (this.peer.certificatesToRequest?.certifiers?.length) {
+                if (this.peer?.certificatesToRequest?.certifiers?.length) {
                   this.openNextHandlers[senderPublicKey] = next
                 } else {
                   next()
@@ -387,7 +390,7 @@ class ExpressTransport implements Transport {
   }
 
   private resetRes(res: Response): Response {
-    res.status = res.__status
+    res.status = (res as any).__status
     res.set = res.__set
     res.json = res.__json
     res.text = res.__text
