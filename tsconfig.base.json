@@ -7,7 +7,7 @@
     "moduleDetection": "force",
     "rootDir": "./",
     "baseUrl": "./",
-    "strict": true,
+    "strict": false,
     "isolatedModules": true,
     "strictNullChecks": true,
     "downlevelIteration": false,

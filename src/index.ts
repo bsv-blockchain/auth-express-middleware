@@ -95,8 +95,8 @@ export class ExpressTransport implements Transport {
       let res: Response = this.openGeneralHandles[requestId]
       delete this.openGeneralHandles[requestId]
 
-      const statusCode = reader.readVarIntNum()
-      res.__status(statusCode)
+      const statusCode = reader.readVarIntNum();
+      (res as any).__status(statusCode)
 
       const responseHeaders: Record<string, string> = {}
       const nHeaders = reader.readVarIntNum()
@@ -124,7 +124,7 @@ export class ExpressTransport implements Transport {
       }
 
       for (const [k, v] of Object.entries(responseHeaders)) {
-        res.__set(k, v)
+        (res as any).__set(k, v)
       }
 
       let responseBody
@@ -244,22 +244,22 @@ export class ExpressTransport implements Transport {
               if (senderPublicKey !== req.headers['x-bsv-auth-identity-key']) return
               const requestId = Utils.toBase64(new Utils.Reader(payload).read(32))
               if (requestId === req.headers['x-bsv-auth-request-id']) {
-                this.peer?.stopListeningForGeneralMessages(listenerId)
-                req.auth = { identityKey: senderPublicKey }
+                this.peer?.stopListeningForGeneralMessages(listenerId);
+                (req as any).auth = { identityKey: senderPublicKey }
 
                 let responseStatus = 200
                 let responseHeaders = {}
-                let responseBody: number[] = []
+                let responseBody: number[] = [];
 
                 // Override methods
-                res.__status = res.status
+                (res as any).__status = res.status
                 res.status = n => {
                   responseStatus = n
                   return res // Return res for chaining
                 }
 
-                res.__set = res.set
-                res.set = (keyOrHeaders, value) => {
+                (res as any).__set = res.set;
+                (res as any).set = (keyOrHeaders, value) => {
                   if (typeof keyOrHeaders === 'object' && keyOrHeaders !== null) {
                     // Handle setting multiple headers with an object
                     for (const [key, val] of Object.entries(keyOrHeaders)) {
@@ -284,11 +284,11 @@ export class ExpressTransport implements Transport {
                 const buildResponse = async (): Promise<void> => {
                   const payload = buildResponsePayload(requestId, responseStatus, responseHeaders, responseBody, req)
                   this.openGeneralHandles[requestId] = res
-                  await this.peer?.toPeer(payload, req.headers['x-bsv-auth-identity-key'])
+                  await this.peer?.toPeer(payload, req.headers['x-bsv-auth-identity-key'] as string)
                 }
 
-                res.__send = res.send
-                res.send = (val: any) => {
+                (res as any).__send = res.send;
+                (res as any).send = (val: any) => {
                   // If the value is an object and no content-type is set, assume JSON
                   if (typeof val === 'object' && val !== null && !responseHeaders['content-type']) {
                     res.set('content-type', 'application/json')
@@ -298,8 +298,8 @@ export class ExpressTransport implements Transport {
                   buildResponse()
                 }
 
-                res.__json = res.json
-                res.json = (obj) => {
+                (res as any).__json = res.json;
+                (res as any).json = (obj) => {
                   if (!responseHeaders['content-type']) {
                     res.set('content-type', 'application/json')
                   }
@@ -307,8 +307,8 @@ export class ExpressTransport implements Transport {
                   buildResponse()
                 }
 
-                res.__text = res.text
-                res.text = (str) => {
+                (res as any).__text = (res as any).text;
+                (res as any).text = (str) => {
                   if (!responseHeaders['content-type']) {
                     res.set('content-type', 'text/plain')
                   }
@@ -316,13 +316,13 @@ export class ExpressTransport implements Transport {
                   buildResponse()
                 }
 
-                res.__end = res.end
-                res.end = () => {
+                (res as any).__end = res.end;
+                (res as any).end = () => {
                   buildResponse()
                 }
 
-                res.__sendFile = res.sendFile
-                res.sendFile = (path, options, callback) => {
+                (res as any).__sendFile = res.sendFile;
+                (res as any).sendFile = (path, options, callback) => {
                   fs.readFile(path, (err, data) => {
                     if (err) {
                       if (callback) return callback(err)
@@ -338,7 +338,7 @@ export class ExpressTransport implements Transport {
                 }
 
                 // Add sendCertificateRequest handler
-                res.sendCertificateRequest = async (certsToRequest: RequestedCertificateSet, identityKey: string) => {
+                (res as any).sendCertificateRequest = async (certsToRequest: RequestedCertificateSet, identityKey: string) => {
                   if (this.openNonGeneralHandles[identityKey]) {
                     this.openNonGeneralHandles[identityKey].push(res)
                   } else {
@@ -373,7 +373,7 @@ export class ExpressTransport implements Transport {
         } else {
           // No auth headers
           if (this.allowAuthenticated) {
-            req.auth = { identityKey: 'unknown' }
+            (req as any).auth = { identityKey: 'unknown' }
             next()
           } else {
             res.status(401).json({
@@ -391,12 +391,12 @@ export class ExpressTransport implements Transport {
 
   private resetRes(res: Response): Response {
     res.status = (res as any).__status
-    res.set = res.__set
-    res.json = res.__json
-    res.text = res.__text
-    res.send = res.__send
-    res.end = res.__end
-    res.sendFile = res.__sendFile
+    res.set = (res as any).__set
+    res.json = (res as any).__json;
+    (res as any).text = (res as any).__text
+    res.send = (res as any).__send
+    res.end = (res as any).__end
+    res.sendFile = (res as any).__sendFile
     return res
   }
 }
@@ -459,10 +459,10 @@ function buildAuthMessageFromRequest(req: Request): AuthMessage {
 
   return {
     messageType: 'general',
-    version: req.headers['x-bsv-auth-version'],
-    identityKey: req.headers['x-bsv-auth-identity-key'],
-    nonce: req.headers['x-bsv-auth-nonce'],
-    yourNonce: req.headers['x-bsv-auth-your-nonce'],
+    version: req.headers['x-bsv-auth-version'] as string,
+    identityKey: req.headers['x-bsv-auth-identity-key'] as string,
+    nonce: req.headers['x-bsv-auth-nonce'] as string,
+    yourNonce: req.headers['x-bsv-auth-your-nonce'] as string,
     payload: writer.toArray(),
     signature: req.headers['x-bsv-auth-signature'] ? Utils.toArray(req.headers['x-bsv-auth-signature'], 'hex') : []
   }
