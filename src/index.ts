@@ -57,7 +57,7 @@ export class ExpressTransport implements Transport {
    */
   async send(message: AuthMessage): Promise<void> {
     if (message.messageType !== 'general') {
-      const handles = this.openNonGeneralHandles[message.identityKey]
+      const handles = this.openNonGeneralHandles[message.yourNonce!]
       if (!Array.isArray(handles) || handles.length === 0) {
         throw new Error('No open handles to this peer!')
       } else {
@@ -185,7 +185,7 @@ export class ExpressTransport implements Transport {
         // Get a the request id
         let requestId = req.headers['x-bsv-auth-request-id'] as string
         if (!requestId) {
-          requestId = message.identityKey
+          requestId = message.initialNonce!
         }
 
         if (this.openNonGeneralHandles[requestId]) {

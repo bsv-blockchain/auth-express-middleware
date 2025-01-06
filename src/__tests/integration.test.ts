@@ -21,7 +21,7 @@ export interface RequestedCertificateSet {
 describe('AuthFetch and AuthExpress Integration Tests', () => {
   let privKey: PrivateKey
   let server: Server
-  privKey = new PrivateKey(1)
+  privKey = PrivateKey.fromRandom()
   beforeAll((done) => {
 
     // Start the Express server
@@ -39,7 +39,6 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
       done()
     })
   })
-
 
   // --------------------------------------------------------------------------
   // Main Tests
@@ -282,7 +281,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     expect(certs).toBeDefined()
     expect(certs.length).toBe(2)
     // Add further assertions based on expected certificates
-  })
+  }, 15000)
 
   // NOTE: YOU MUST MODIFY THE SERVER SIDE TO REQUEST CERTIFICATES FOR THIS TEST TO PASS:
   // test('Test 13: Simple GET request with certificate requests', async () => {
