@@ -2,7 +2,7 @@ import express, { Request, Response, NextFunction } from 'express'
 import bodyParser from 'body-parser'
 import { PrivateKey, RequestedCertificateSet, Utils } from '@bsv/sdk'
 import { VerifiableCertificate, createMasterCertificate } from '@bsv/sdk'
-import { MockWallet } from '../__tests/MockWallet'
+import { MockWallet } from './MockWallet'
 import { createAuthMiddleware } from '../index'
 
 // Create Express app instance

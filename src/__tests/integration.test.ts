@@ -11,7 +11,7 @@ import {
 import { AuthFetch, createMasterCertificate } from '@bsv/sdk'
 import { MockWallet } from './MockWallet'
 import { Server } from 'http'
-import { startServer } from './testExpressServer.test'
+import { startServer } from './testExpressServer'
 
 export interface RequestedCertificateSet {
   certifiers: string[]
