@@ -5,6 +5,10 @@ import { VerifiableCertificate, createMasterCertificate } from '@bsv/sdk'
 import { MockWallet } from './MockWallet'
 import { createAuthMiddleware } from '../index'
 
+// May be necessary when testing depending on your environment:
+// import * as crypto from 'crypto'
+// global.self = { crypto }
+
 // Create Express app instance
 export const app = express()
 
@@ -43,6 +47,22 @@ const mockWallet = new MockWallet(privKey);
   await masterCert.sign(certifierWallet)
   mockWallet.addMasterCertificate(masterCert)
 })()
+
+// This allows the API to be used everywhere when CORS is enforced
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*')
+  res.header('Access-Control-Allow-Headers', '*')
+  res.header('Access-Control-Allow-Methods', '*')
+  res.header('Access-Control-Expose-Headers', '*')
+  res.header('Access-Control-Allow-Private-Network', 'true')
+
+  if (req.method === 'OPTIONS') {
+    // Handle CORS preflight requests to allow cross-origin POST/PUT requests
+    res.sendStatus(200)
+  } else {
+    next()
+  }
+})
 
 // Define routes
 app.post('/no-auth', (req: Request, res: Response) => {
