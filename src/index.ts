@@ -715,8 +715,7 @@ function writeBodyToWriter(
     }
   } else if (
     headers['content-type'] === 'application/json' &&
-    body &&
-    Object.keys(body).length > 0
+    typeof body === 'object'
   ) {
     // If the body is JSON
     const bodyAsArray = Utils.toArray(JSON.stringify(body), 'utf8')
