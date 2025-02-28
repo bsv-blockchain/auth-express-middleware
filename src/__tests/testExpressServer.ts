@@ -1,7 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express'
 import bodyParser from 'body-parser'
-import { PrivateKey, RequestedCertificateSet, Utils } from '@bsv/sdk'
-import { VerifiableCertificate, createMasterCertificate } from '@bsv/sdk'
+import { CompletedProtoWallet, MasterCertificate, PrivateKey, RequestedCertificateSet, VerifiableCertificate } from '@bsv/sdk'
 import { MockWallet } from './MockWallet'
 import { createAuthMiddleware } from '../index'
 
@@ -31,22 +30,18 @@ const mockWallet = new MockWallet(privKey);
 // Asynchronous setup for certificates and middleware
 (async () => {
   const certifierPrivateKey = PrivateKey.fromHex('5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef')
-  const certifierWallet = new MockWallet(certifierPrivateKey)
-  const certifierPublicKey = certifierPrivateKey.toPublicKey().toString()
+  const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
   const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
-  const certificateSerialNumber = Utils.toBase64(new Array(32).fill(2))
   const fields = { firstName: 'Alice', lastName: 'Doe' }
 
-  const masterCert = await createMasterCertificate(
-    mockWallet,
+  const masterCert = await MasterCertificate.issueCertificateForSubject(
+    certifierWallet,
+    (await mockWallet.getPublicKey({ identityKey: true })).publicKey,
     fields,
-    certificateType,
-    certificateSerialNumber,
-    certifierPublicKey
+    certificateType
   )
-  await masterCert.sign(certifierWallet)
   mockWallet.addMasterCertificate(masterCert)
-})()
+})().catch(e => console.error(e))
 
 // This allows the API to be used everywhere when CORS is enforced
 app.use((req, res, next) => {
@@ -75,7 +70,8 @@ const authMiddleware = createAuthMiddleware({
   onCertificatesReceived: (_senderPublicKey: string, certs: VerifiableCertificate[], req: Request, res: Response, next: NextFunction) => {
     console.log('Certificates received:', certs)
     next()
-  }
+  },
+  // certificatesToRequest
 })
 
 // Add the mutual authentication middleware
@@ -90,7 +86,7 @@ app.get('/other-endpoint', (req: Request, res: Response) => {
 })
 
 app.post('/other-endpoint', (req: Request, res: Response) => {
-  res.status(200).send({ message: 'This is another endpoint.' })
+  res.status(200).send({ message: 'This is another endpoint. 😅' })
 })
 
 app.post('/cert-protected-endpoint', (req: Request, res: Response) => {

@@ -3,18 +3,18 @@ import fs from 'fs'
 import mime from 'mime-types'
 import {
   Utils,
-  Wallet,
   VerifiableCertificate,
   Peer,
   AuthMessage,
   RequestedCertificateSet,
   Transport,
-  SessionManager
+  SessionManager,
+  WalletInterface
 } from '@bsv/sdk'
 
 // Developers may optionally provide a handler for incoming certificates.
 export interface AuthMiddlewareOptions {
-  wallet: Wallet
+  wallet: WalletInterface
   sessionManager?: SessionManager // Optional if dev wants custom SessionManager
   allowUnauthenticated?: boolean
   certificatesToRequest?: RequestedCertificateSet
@@ -344,7 +344,7 @@ export class ExpressTransport implements Transport {
                   senderPublicKey,
                   certs
                 })
-                this.openNonGeneralHandles[senderPublicKey][0].json({ status: 'certificate received' })
+                this.openNonGeneralHandles[message.initialNonce!][0].json({ status: 'certificate received' })
                 if (onCertificatesReceived) {
                   onCertificatesReceived(senderPublicKey, certs, req, res, next)
                 }
@@ -356,7 +356,7 @@ export class ExpressTransport implements Transport {
                 }
               }
 
-              this.openNonGeneralHandles[senderPublicKey].shift()
+              this.openNonGeneralHandles[message.initialNonce!].shift()
               // Note: do we ever stop listening for certificates?
             })
           this.log('debug', `listenForCertificatesReceived registered`, { listenerId })
