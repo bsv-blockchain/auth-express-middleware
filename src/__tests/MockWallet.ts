@@ -1,65 +1,164 @@
-import { Base64String, BEEF, PositiveIntegerOrZero, PubKeyHex, MasterCertificate, ProtoWallet, BasketStringUnder300Bytes, OutputTagStringUnder300Bytes, DescriptionString5to50Bytes, OriginatorDomainNameStringUnder250Bytes, LabelStringUnder300Bytes } from '@bsv/sdk'
-
-type StoredCertificate = {
-  type: string
-  subject: string
-  serialNumber: string
-  certifier: string
-  revocationOutpoint: string
-  signature: string
-  fields: Record<string, string>
-  masterCertificate: MasterCertificate
-}
+import {
+  MasterCertificate,
+  OriginatorDomainNameStringUnder250Bytes,
+  WalletInterface,
+  ListCertificatesArgs,
+  ListCertificatesResult,
+  AbortActionArgs,
+  AbortActionResult,
+  AcquireCertificateArgs,
+  AuthenticatedResult,
+  CreateActionArgs,
+  CreateActionResult,
+  CreateHmacArgs,
+  CreateHmacResult,
+  CreateSignatureArgs,
+  CreateSignatureResult,
+  DiscoverByAttributesArgs,
+  DiscoverByIdentityKeyArgs,
+  DiscoverCertificatesResult,
+  GetHeaderArgs,
+  GetHeaderResult,
+  GetHeightResult,
+  GetNetworkResult,
+  GetPublicKeyArgs,
+  GetPublicKeyResult,
+  GetVersionResult,
+  InternalizeActionArgs,
+  InternalizeActionResult,
+  ListActionsArgs,
+  ListActionsResult,
+  ListOutputsArgs,
+  ListOutputsResult,
+  ProveCertificateArgs,
+  ProveCertificateResult,
+  RelinquishCertificateArgs,
+  RelinquishCertificateResult,
+  RelinquishOutputArgs,
+  RelinquishOutputResult,
+  RevealCounterpartyKeyLinkageArgs,
+  RevealCounterpartyKeyLinkageResult,
+  RevealSpecificKeyLinkageArgs,
+  RevealSpecificKeyLinkageResult,
+  SignActionArgs,
+  SignActionResult,
+  VerifyHmacArgs,
+  VerifyHmacResult,
+  VerifySignatureArgs,
+  VerifySignatureResult,
+  WalletCertificate,
+  WalletDecryptArgs,
+  WalletDecryptResult,
+  WalletEncryptArgs,
+  WalletEncryptResult,
+  KeyDeriver,
+  KeyDeriverApi,
+  PrivateKey,
+  ProtoWallet
+} from '@bsv/sdk'
 
 /**
- * Helper MockWallet that extends ProtoWallet with mocked functionality as needed.
+ * MockWallet extends CompletedProtoWallet and provides concrete
+ * implementations for select methods used for testing.
  */
-export class MockWallet extends ProtoWallet {
-  private storedCertificates: StoredCertificate[] = []
+export class MockWallet extends ProtoWallet
+  implements WalletInterface {
+
+  keyDeriver: KeyDeriver
+  constructor(rootKeyOrKeyDeriver: PrivateKey | 'anyone' | KeyDeriverApi) {
+    super(rootKeyOrKeyDeriver)
+
+    if (rootKeyOrKeyDeriver instanceof KeyDeriver) {
+      this.keyDeriver = rootKeyOrKeyDeriver
+    } else if (
+      typeof rootKeyOrKeyDeriver === 'string' ||
+      rootKeyOrKeyDeriver instanceof PrivateKey
+    ) {
+      this.keyDeriver = new KeyDeriver(rootKeyOrKeyDeriver)
+    } else {
+      throw new Error('Invalid key deriver provided')
+    }
+  }
+
+  getPublicKey: (args: GetPublicKeyArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<GetPublicKeyResult>
+  revealCounterpartyKeyLinkage: (args: RevealCounterpartyKeyLinkageArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<RevealCounterpartyKeyLinkageResult>
+  revealSpecificKeyLinkage: (args: RevealSpecificKeyLinkageArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<RevealSpecificKeyLinkageResult>
+  encrypt: (args: WalletEncryptArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<WalletEncryptResult>
+  decrypt: (args: WalletDecryptArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<WalletDecryptResult>
+  createHmac: (args: CreateHmacArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<CreateHmacResult>
+  verifyHmac: (args: VerifyHmacArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<VerifyHmacResult>
+  createSignature: (args: CreateSignatureArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<CreateSignatureResult>
+  verifySignature: (args: VerifySignatureArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<VerifySignatureResult>
+  createAction: (args: CreateActionArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<CreateActionResult>
+  signAction: (args: SignActionArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<SignActionResult>
+  abortAction: (args: AbortActionArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<AbortActionResult>
+  listActions: (args: ListActionsArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<ListActionsResult>
+  listOutputs: (args: ListOutputsArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<ListOutputsResult>
+  relinquishOutput: (args: RelinquishOutputArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<RelinquishOutputResult>
+  acquireCertificate: (args: AcquireCertificateArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<WalletCertificate>
+  relinquishCertificate: (args: RelinquishCertificateArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<RelinquishCertificateResult>
+  discoverByIdentityKey: (args: DiscoverByIdentityKeyArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<DiscoverCertificatesResult>
+  discoverByAttributes: (args: DiscoverByAttributesArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<DiscoverCertificatesResult>
+  isAuthenticated: (args: object, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<AuthenticatedResult>
+  waitForAuthentication: (args: object, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<AuthenticatedResult>
+  getHeight: (args: object, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<GetHeightResult>
+  getHeaderForHeight: (args: GetHeaderArgs, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<GetHeaderResult>
+  getNetwork: (args: object, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<GetNetworkResult>
+  getVersion: (args: object, originator?: OriginatorDomainNameStringUnder250Bytes) => Promise<GetVersionResult>
+  private readonly storedCertificates: MasterCertificate[] = []
 
   /**
-   * Add a master certificate to this wallet for testing.
-   * @param {MasterCertificate} masterCertificate - The master certificate to store.
+   * Add a master certificate to the wallet for testing purposes.
    */
-  addMasterCertificate(masterCertificate: MasterCertificate) {
-    const certData = {
-      type: masterCertificate.type,
-      subject: masterCertificate.subject,
-      serialNumber: masterCertificate.serialNumber,
-      certifier: masterCertificate.certifier,
-      revocationOutpoint: masterCertificate.revocationOutpoint,
-      signature: masterCertificate.signature || '',
-      fields: masterCertificate.fields,
-      masterCertificate
+  addMasterCertificate(masterCertificate: MasterCertificate): void {
+    this.storedCertificates.push(masterCertificate)
+  }
+
+
+  /**
+   * Given a certificate and fields to reveal, this method creates a keyring
+   * for the verifier by leveraging the masterCertificate’s capabilities.
+   */
+  async proveCertificate(args: ProveCertificateArgs, originator?: OriginatorDomainNameStringUnder250Bytes): Promise<ProveCertificateResult> {
+    const storedCert = this.storedCertificates.find(sc =>
+      sc.type === args.certificate.type &&
+      sc.subject === args.certificate.subject &&
+      sc.serialNumber === args.certificate.serialNumber &&
+      sc.certifier === args.certificate.certifier
+    )
+
+    if (storedCert === undefined) {
+      throw new Error('Certificate not found in MockWallet.')
     }
-    this.storedCertificates.push(certData)
+
+    // Create the keyring for the verifier (using the masterCertificate's method)
+    const keyringForVerifier = await MasterCertificate.createKeyringForVerifier(
+      this,
+      storedCert.certifier,
+      args.verifier,
+      storedCert.fields,
+      args.fieldsToReveal,
+      storedCert.masterKeyring,
+      storedCert.serialNumber
+    )
+
+    return { keyringForVerifier }
   }
 
   /**
-   * Mock implementation of listCertificates:
-   * It returns any certificates whose certifier and type match the requested sets.
+   * Mock implementation of internalizeAction.
+   * Logs the provided action details and returns a successful response.
    */
-  async listCertificates(
-    args: {
-      certifiers: string[]
-      types: string[]
-      limit?: number
-      offset?: number
-      privileged?: boolean
-      privilegedReason?: string
-    }
-  ): Promise<{
-    totalCertificates: number
-    certificates: Array<{
-      type: string
-      subject: string
-      serialNumber: string
-      certifier: string
-      revocationOutpoint: string
-      signature: string
-      fields: Record<string, string>
-    }>
-  }> {
+  async internalizeAction(args: InternalizeActionArgs, originator?: OriginatorDomainNameStringUnder250Bytes): Promise<InternalizeActionResult> {
+    console.log('Mock internalizeAction called with:', { args, originator })
+    return await Promise.resolve({ accepted: true })
+  }
+
+  /**
+   * Returns any certificates whose certifier and type match the requested sets.
+   */
+  async listCertificates(args: ListCertificatesArgs,
+    originator?: OriginatorDomainNameStringUnder250Bytes): Promise<ListCertificatesResult> {
     // Filter certificates by requested certifiers and types
     const filtered = this.storedCertificates.filter(cert => {
       return args.certifiers.includes(cert.certifier) && args.types.includes(cert.type)
@@ -81,93 +180,4 @@ export class MockWallet extends ProtoWallet {
       }))
     }
   }
-
-  /**
-   * Mock implementation of proveCertificate:
-   * Given a certificate and fieldsToReveal, it calls the masterCertificate to create
-   * a keyring for the verifier, just as the real code would.
-   */
-  async proveCertificate(
-    args: {
-      certificate: {
-        type: string
-        subject: string
-        serialNumber: string
-        certifier: string
-        revocationOutpoint: string
-        signature: string
-        fields: Record<string, string>
-      }
-      fieldsToReveal: string[]
-      verifier: string
-      privileged?: boolean
-      privilegedReason?: string
-    }
-  ): Promise<{
-    keyringForVerifier: Record<string, string>
-  }> {
-    if (args.privileged) {
-      throw new Error(this.privilegedError)
-    }
-
-    // Find the stored certificate that matches the given certificate fields
-    const storedCert = this.storedCertificates.find(sc =>
-      sc.type === args.certificate.type &&
-      sc.subject === args.certificate.subject &&
-      sc.serialNumber === args.certificate.serialNumber &&
-      sc.certifier === args.certificate.certifier
-    )
-
-    if (!storedCert) {
-      throw new Error('Certificate not found in MockWallet.')
-    }
-
-    // Create the keyring for the verifier
-    const keyringForVerifier = await storedCert.masterCertificate.createKeyringForVerifier(
-      this,
-      args.verifier,
-      args.fieldsToReveal
-    )
-
-    return { keyringForVerifier }
-  }
-
-  /**
-   * Mock implementation of internalizeAction
-   *
-   * @param args - The action to internalize
-   * @param originator - Optional originator domain name
-   * @returns 
-   */
-  async internalizeAction(
-    args: {
-      tx: BEEF;
-      outputs: Array<{
-        outputIndex: PositiveIntegerOrZero;
-        protocol: 'wallet payment' | 'basket insertion';
-        paymentRemittance?: {
-          derivationPrefix: Base64String;
-          derivationSuffix: Base64String;
-          senderIdentityKey: PubKeyHex;
-        };
-        insertionRemittance?: {
-          basket: BasketStringUnder300Bytes;
-          customInstructions?: string;
-          tags?: OutputTagStringUnder300Bytes[];
-        };
-      }>;
-      description: DescriptionString5to50Bytes;
-      labels?: LabelStringUnder300Bytes[];
-    },
-    originator?: OriginatorDomainNameStringUnder250Bytes
-  ): Promise<{ accepted: true }> {
-    // Mock implementation: logs the input and returns a mocked response
-    console.log("Mock internalizeAction called with:", { args, originator });
-
-    // Simulate successful action with mocked response
-    return Promise.resolve({ accepted: true });
-  }
-
-
-  // If needed, you can also provide mock implementations of acquireCertificate, relinquishCertificate, etc.
 }
