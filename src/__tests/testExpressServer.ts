@@ -71,7 +71,7 @@ const authMiddleware = createAuthMiddleware({
     console.log('Certificates received:', certs)
     next()
   },
-  certificatesToRequest
+  // certificatesToRequest
 })
 
 // Add the mutual authentication middleware
