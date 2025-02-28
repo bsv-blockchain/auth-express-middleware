@@ -8,7 +8,7 @@ Links: [API](#api), [Interfaces](#interfaces), [Classes](#classes), [Functions](
 
 ```ts
 export interface AuthMiddlewareOptions {
-    wallet: Wallet;
+    wallet: WalletInterface;
     sessionManager?: SessionManager;
     allowUnauthenticated?: boolean;
     certificatesToRequest?: RequestedCertificateSet;
