@@ -337,4 +337,42 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
       })
     ).rejects.toThrow()
   })
+
+  test('Edge Case B: application json content with undefined body', async () => {
+    const walletWithRequests = new MockWallet(privKey)
+    const authFetch = new AuthFetch(walletWithRequests)
+    const result = await authFetch.fetch(
+      'http://localhost:3000/other-endpoint',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json'
+        },
+        body: undefined
+      }
+    )
+    expect(result.status).toBe(200)
+    const jsonResponse = await result.json()
+    console.log(jsonResponse)
+    expect(jsonResponse).toBeDefined()
+  }, 1500000)
+
+  test('Edge Case C: application json content with body of type object', async () => {
+    const walletWithRequests = new MockWallet(privKey)
+    const authFetch = new AuthFetch(walletWithRequests)
+    const result = await authFetch.fetch(
+      'http://localhost:3000/other-endpoint',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json'
+        },
+        body: {}
+      }
+    )
+    expect(result.status).toBe(200)
+    const jsonResponse = await result.json()
+    console.log(jsonResponse)
+    expect(jsonResponse).toBeDefined()
+  }, 1500000)
 })
