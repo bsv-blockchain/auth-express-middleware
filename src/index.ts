@@ -466,7 +466,7 @@ export class ExpressTransport implements Transport {
                     responseBody = convertValueToArray(val, responseHeaders)
                     buildResponse()
                   }
-
+                this.checkRes(res, 'needs to be clear')
                   ; (res as any).__json = res.json
                   ; (res as any).json = (obj) => {
                     if (!responseHeaders['content-type']) {
@@ -576,7 +576,36 @@ export class ExpressTransport implements Transport {
     }
   }
 
+  private checkRes(res: any, test?: 'needs to be clear' | 'needs to be hijacked'): void {
+    if (test === 'needs to be clear') {
+      if (
+        typeof res.__status === 'function' ||
+        typeof res.__set === 'function' ||
+        typeof res.__json === 'function' ||
+        typeof res.__text === 'function' ||
+        typeof res.__send === 'function' ||
+        typeof res.__end === 'function' ||
+        typeof res.__sendFile === 'function'
+      ) {
+        throw new Error('Unable to install Auth midddleware on the response object as it is not clear. Are two middleware instances installed?')
+      }
+    } else {
+      if (
+        typeof res.__status !== 'function' ||
+        typeof res.__set !== 'function' ||
+        typeof res.__json !== 'function' ||
+        typeof res.__text !== 'function' ||
+        typeof res.__send !== 'function' ||
+        typeof res.__end !== 'function' ||
+        typeof res.__sendFile !== 'function'
+      ) {
+        throw new Error('Unable to restore response object. Did you tamper with hijacked properties (res.__status, __set, __json, __text, __send, __end, __sendFile) ?')
+      }
+    }
+  }
+
   private resetRes(res: Response): Response {
+    this.checkRes(res, 'needs to be hijacked')
     res.status = (res as any).__status
     res.set = (res as any).__set
     res.json = (res as any).__json
