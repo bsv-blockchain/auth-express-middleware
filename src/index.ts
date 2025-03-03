@@ -396,7 +396,8 @@ export class ExpressTransport implements Transport {
                 let responseHeaders = {}
                 let responseBody: number[] = []
 
-                  // Override methods
+                // Override methods after checking res is clear
+                this.checkRes(res, 'needs to be clear', next)
                   ; (res as any).__status = res.status
                 res.status = (n) => {
                   responseStatus = n
@@ -466,7 +467,6 @@ export class ExpressTransport implements Transport {
                     responseBody = convertValueToArray(val, responseHeaders)
                     buildResponse()
                   }
-                this.checkRes(res, 'needs to be clear')
                   ; (res as any).__json = res.json
                   ; (res as any).json = (obj) => {
                     if (!responseHeaders['content-type']) {
@@ -476,7 +476,6 @@ export class ExpressTransport implements Transport {
                     buildResponse()
                   }
 
-                  ; (res as any).__text = (res as any).__text
                   ; (res as any).text = (str) => {
                     if (!responseHeaders['content-type']) {
                       res.set('content-type', 'text/plain')
@@ -576,7 +575,7 @@ export class ExpressTransport implements Transport {
     }
   }
 
-  private checkRes(res: any, test?: 'needs to be clear' | 'needs to be hijacked'): void {
+  private checkRes(res: any, test?: 'needs to be clear' | 'needs to be hijacked', next?: Function): void {
     if (test === 'needs to be clear') {
       if (
         typeof res.__status === 'function' ||
@@ -587,25 +586,32 @@ export class ExpressTransport implements Transport {
         typeof res.__end === 'function' ||
         typeof res.__sendFile === 'function'
       ) {
-        throw new Error('Unable to install Auth midddleware on the response object as it is not clear. Are two middleware instances installed?')
+        const e = new Error('Unable to install Auth midddleware on the response object as it is not clear. Are two middleware instances installed?')
+        if (typeof next === 'function') {
+          next(e)
+        }
+        throw e
       }
     } else {
       if (
         typeof res.__status !== 'function' ||
         typeof res.__set !== 'function' ||
         typeof res.__json !== 'function' ||
-        typeof res.__text !== 'function' ||
         typeof res.__send !== 'function' ||
         typeof res.__end !== 'function' ||
         typeof res.__sendFile !== 'function'
       ) {
-        throw new Error('Unable to restore response object. Did you tamper with hijacked properties (res.__status, __set, __json, __text, __send, __end, __sendFile) ?')
+        const e = new Error('Unable to restore response object. Did you tamper with hijacked properties (res.__status, __set, __json, __text, __send, __end, __sendFile) ?')
+        if (typeof next === 'function') {
+          next(e)
+        }
+        throw e
       }
     }
   }
 
-  private resetRes(res: Response): Response {
-    this.checkRes(res, 'needs to be hijacked')
+  private resetRes(res: Response, next?: Function): Response {
+    this.checkRes(res, 'needs to be hijacked', next)
     res.status = (res as any).__status
     res.set = (res as any).__set
     res.json = (res as any).__json
