@@ -86,8 +86,8 @@ function getLogMethod(
 export class ExpressTransport implements Transport {
   peer?: Peer
   allowAuthenticated: boolean
-  openNonGeneralHandles: Record<string, Response[]> = {}
-  openGeneralHandles: Record<string, Response> = {}
+  openNonGeneralHandles: Record<string, Array<{ res: Response, next: Function }>> = {}
+  openGeneralHandles: Record<string, { next: Function, res: Response }> = {}
   openNextHandlers: Record<string, NextFunction> = {}
 
   private messageCallback?: (message: AuthMessage) => Promise<void>
@@ -160,7 +160,7 @@ export class ExpressTransport implements Transport {
         throw new Error('No open handles to this peer!')
       } else {
         // Since this is an initial response, we can assume there's only one handle per identity
-        const res = handles[0]
+        const { res, next } = handles[0]
         const responseHeaders: Record<string, string> = {}
         responseHeaders['x-bsv-auth-version'] = message.version
         responseHeaders['x-bsv-auth-message-type'] = message.messageType
@@ -169,17 +169,17 @@ export class ExpressTransport implements Transport {
         responseHeaders['x-bsv-auth-your-nonce'] = message.yourNonce!
         responseHeaders['x-bsv-auth-signature'] = Utils.toHex(message.signature!)
 
-        if (message.requestedCertificates) {
+        if (typeof message.requestedCertificates === 'object') {
           responseHeaders['x-bsv-auth-requested-certificates'] = JSON.stringify(message.requestedCertificates)
         }
         if ((res as any).__set !== undefined) {
-          this.resetRes(res)
+          this.resetRes(res, next)
         }
         for (const [k, v] of Object.entries(responseHeaders)) {
           res.set(k, v)
         }
 
-        this.log('info', `Sending non-general AuthMessage response`, {
+        this.log('info', 'Sending non-general AuthMessage response', {
           status: 200,
           responseHeaders,
           messagePayload: message
@@ -192,11 +192,11 @@ export class ExpressTransport implements Transport {
       const reader = new Utils.Reader(message.payload)
       const requestId = Utils.toBase64(reader.read(32))
 
-      if (!this.openGeneralHandles[requestId]) {
+      if (typeof this.openGeneralHandles[requestId] !== 'object') {
         this.log('warn', `No response handle for this requestId`, { requestId })
         throw new Error('No response handle for this requestId!')
       }
-      let res: Response = this.openGeneralHandles[requestId]
+      let { res, next } = this.openGeneralHandles[requestId]
       delete this.openGeneralHandles[requestId]
 
       const statusCode = reader.readVarIntNum()
@@ -237,7 +237,7 @@ export class ExpressTransport implements Transport {
         responseBody = reader.read(responseBodyBytes)
       }
 
-      res = this.resetRes(res)
+      res = this.resetRes(res, next)
       this.log('info', `Sending general AuthMessage response`, {
         status: statusCode,
         responseHeaders,
@@ -318,39 +318,39 @@ export class ExpressTransport implements Transport {
           requestId = message.initialNonce!
         }
 
-        if (this.openNonGeneralHandles[requestId]) {
-          this.openNonGeneralHandles[requestId].push(res)
+        if (Array.isArray(this.openNonGeneralHandles[requestId])) {
+          this.openNonGeneralHandles[requestId].push({ res, next })
         } else {
-          this.openNonGeneralHandles[requestId] = [res]
+          this.openNonGeneralHandles[requestId] = [{ res, next }]
         }
 
         if (!this.peer.sessionManager.hasSession(message.identityKey)) {
           const listenerId = this.peer.listenForCertificatesReceived(
             (senderPublicKey: string, certs: VerifiableCertificate[]) => {
-              this.log('debug', `Certificates received event triggered`, {
+              this.log('debug', 'Certificates received event triggered', {
                 senderPublicKey,
                 certCount: certs?.length
               })
               if (senderPublicKey !== req.body.identityKey) {
                 return
               }
-              if (!certs || certs.length === 0) {
-                this.log('warn', `No certificates provided by peer`, { senderPublicKey })
-                this.openNonGeneralHandles[senderPublicKey][0]
+              if (!Array.isArray(certs) || certs.length === 0) {
+                this.log('warn', 'No certificates provided by peer', { senderPublicKey })
+                this.openNonGeneralHandles[senderPublicKey][0].res
                   .status(400)
                   .json({ status: 'No certificates provided' })
               } else {
-                this.log('info', `Certificates successfully received from peer`, {
+                this.log('info', 'Certificates successfully received from peer', {
                   senderPublicKey,
                   certs
                 })
-                this.openNonGeneralHandles[message.initialNonce!][0].json({ status: 'certificate received' })
-                if (onCertificatesReceived) {
+                this.openNonGeneralHandles[message.initialNonce!][0].res.json({ status: 'certificate received' })
+                if (typeof onCertificatesReceived === 'function') {
                   onCertificatesReceived(senderPublicKey, certs, req, res, next)
                 }
 
                 const nextFn = this.openNextHandlers[message.identityKey]
-                if (nextFn) {
+                if (typeof nextFn === 'function') {
                   nextFn()
                   delete this.openNextHandlers[message.identityKey]
                 }
@@ -359,7 +359,7 @@ export class ExpressTransport implements Transport {
               this.openNonGeneralHandles[message.initialNonce!].shift()
               // Note: do we ever stop listening for certificates?
             })
-          this.log('debug', `listenForCertificatesReceived registered`, { listenerId })
+          this.log('debug', 'listenForCertificatesReceived registered', { listenerId })
         }
 
         if (this.messageCallback) {
@@ -443,7 +443,7 @@ export class ExpressTransport implements Transport {
                     this.logger,
                     this.logLevel
                   )
-                  this.openGeneralHandles[requestId] = res
+                  this.openGeneralHandles[requestId] = { res, next }
                   this.log('debug', `Sending general message response`, {
                     requestId,
                     responseStatus,
@@ -512,11 +512,11 @@ export class ExpressTransport implements Transport {
                     identityKey: string
                   ) => {
                     if (this.openNonGeneralHandles[identityKey]) {
-                      this.openNonGeneralHandles[identityKey].push(res)
+                      this.openNonGeneralHandles[identityKey].push({ res, next })
                     } else {
-                      this.openNonGeneralHandles[identityKey] = [res]
+                      this.openNonGeneralHandles[identityKey] = [{ res, next }]
                     }
-                    this.log('info', `Sending certificate request`, {
+                    this.log('info', 'Sending certificate request', {
                       certsToRequest,
                       identityKey
                     })
