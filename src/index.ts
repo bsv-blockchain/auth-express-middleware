@@ -9,12 +9,13 @@ import {
   RequestedCertificateSet,
   Transport,
   SessionManager,
-  WalletInterface
+  WalletInterface,
+  PubKeyHex
 } from '@bsv/sdk'
 
 export interface AuthRequest extends Request {
-  auth: {
-    identityKey: string;
+  auth?: {
+    identityKey: PubKeyHex | 'unknown'
   }
 }
 
@@ -27,7 +28,7 @@ export interface AuthMiddlewareOptions {
   onCertificatesReceived?: (
     senderPublicKey: string,
     certs: VerifiableCertificate[],
-    req: Request,
+    req: AuthRequest,
     res: Response,
     next: NextFunction
   ) => void
@@ -893,7 +894,7 @@ function convertValueToArray(val: any, responseHeaders: Record<string, any>): nu
  * @param {AuthMiddlewareOptions} options
  * @returns {(req: Request, res: Response, next: NextFunction) => void} Express middleware
  */
-export function createAuthMiddleware(options: AuthMiddlewareOptions) {
+export function createAuthMiddleware(options: AuthMiddlewareOptions): (req: AuthRequest, res: Response, next: NextFunction) => void {
   const {
     wallet,
     sessionManager,
