@@ -12,6 +12,12 @@ import {
   WalletInterface
 } from '@bsv/sdk'
 
+export interface AuthRequest extends Request {
+  auth: {
+    identityKey: string;
+  }
+}
+
 // Developers may optionally provide a handler for incoming certificates.
 export interface AuthMiddlewareOptions {
   wallet: WalletInterface
@@ -279,19 +285,19 @@ export class ExpressTransport implements Transport {
    * - Returns a 401 error if mutual authentication fails.
    *
    * ### Parameters:
-   * @param {Request} req - The incoming HTTP request.
+   * @param {AuthRequest} req - The incoming HTTP request.
    * @param {Response} res - The HTTP response.
    * @param {NextFunction} next - The Express `next` middleware function.
    * @param {Function} [onCertificatesReceived] - Optional callback invoked when certificates are received.
    */
   public handleIncomingRequest(
-    req: Request,
+    req: AuthRequest,
     res: Response,
     next: NextFunction,
     onCertificatesReceived?: (
       senderPublicKey: string,
       certs: VerifiableCertificate[],
-      req: Request,
+      req: AuthRequest,
       res: Response,
       next: NextFunction
     ) => void
@@ -390,7 +396,7 @@ export class ExpressTransport implements Transport {
                   senderPublicKey
                 })
                 this.peer?.stopListeningForGeneralMessages(listenerId)
-                  ; (req as any).auth = { identityKey: senderPublicKey }
+                req.auth = { identityKey: senderPublicKey }
 
                 let responseStatus = 200
                 let responseHeaders = {}
@@ -557,7 +563,7 @@ export class ExpressTransport implements Transport {
             { allowAuthenticated: this.allowAuthenticated }
           )
           if (this.allowAuthenticated) {
-            ; (req as any).auth = { identityKey: 'unknown' }
+            req.auth = { identityKey: 'unknown' }
             next()
           } else {
             this.log('warn', `Mutual-authentication failed. Returning 401.`)
@@ -923,7 +929,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions) {
   transport.setPeer(peer)
 
   // Return the express middleware
-  return (req: Request, res: Response, next: NextFunction) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (logger && logLevel && isLogLevelEnabled(logLevel, 'debug')) {
       getLogMethod(logger, 'debug')(`[createAuthMiddleware] Incoming request to auth middleware`, {
         path: req.path,
