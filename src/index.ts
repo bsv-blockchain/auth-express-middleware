@@ -530,8 +530,11 @@ export class ExpressTransport implements Transport {
                     await this.peer?.requestCertificates(certsToRequest, identityKey)
                   }
 
-                if (this.peer?.certificatesToRequest?.certifiers?.length) {
-                  this.openNextHandlers[senderPublicKey] = next
+                if (
+                  this.peer?.certificatesToRequest?.certifiers?.length &&
+                  Object.keys(this.openNextHandlers[senderPublicKey] || {}).length > 0
+                ) {
+                  this.openNextHandlers[senderPublicKey] = next;
                 } else {
                   next()
                 }
