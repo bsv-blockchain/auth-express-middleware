@@ -685,19 +685,25 @@ function buildAuthMessageFromRequest(
     writer.writeVarIntNum(-1)
   }
 
+  // Parse request headers from client and include only the signed headers:
+  // - Include custom headers prefixed with x-bsv (excluding those starting with x-bsv-auth)
+  // - Include a normalized version of the content-type header
+  // - Include the authorization header
+
   // Headers
-  const includedHeaders: [string, string][] = []
+  const includedHeaders: Array<[string, string]> = []
   for (let [k, v] of Object.entries(req.headers)) {
     k = k.toLowerCase()
     // Normalize the Content-Type header by removing any parameters.
     if (k === 'content-type') {
       v = (v as string).split(';')[0].trim()
     }
-
     if ((k.startsWith('x-bsv-') || k === 'content-type' || k === 'authorization') && !k.startsWith('x-bsv-auth')) {
       includedHeaders.push([k, v as string])
     }
   }
+
+  includedHeaders.sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
 
   writer.writeVarIntNum(includedHeaders.length)
   for (let i = 0; i < includedHeaders.length; i++) {
@@ -839,18 +845,19 @@ function buildResponsePayload(
   writer.write(Utils.toArray(requestId, 'base64'))
   writer.writeVarIntNum(responseStatus)
 
-  const includedHeaders: [string, string][] = []
-  // Define an explicit order by sorting keys to ensure client/server sign headers in the same order.
-  const sortedKeys = Object.keys(responseHeaders)
-    .filter((k) => k.toLowerCase().startsWith('x-bsv-') || k.toLowerCase() === 'authorization')
-    .sort((keyA, keyB) => keyA.localeCompare(keyB))
-
-  for (const k of sortedKeys) {
-    const lowerKey = k.toLowerCase()
-    if (!lowerKey.startsWith('x-bsv-auth')) {
-      includedHeaders.push([lowerKey, responseHeaders[k]])
+  // Filter out headers that should NOT be signed:
+  // - Include custom headers prefixed with x-bsv (excluding those starting with x-bsv-auth)
+  // - Include the authorization header
+  const includedHeaders: Array<[string, string]> = []
+  responseHeaders.headers.forEach((value, key) => {
+    const lowerKey = key.toLowerCase()
+    if ((lowerKey.startsWith('x-bsv-') || lowerKey === 'authorization') && !lowerKey.startsWith('x-bsv-auth')) {
+      includedHeaders.push([lowerKey, value])
     }
-  }
+  })
+
+  // Sort the headers by key to ensure a consistent order for signing and verification.
+  includedHeaders.sort(([keyA], [keyB]) => keyA.localeCompare(keyB))
 
   writer.writeVarIntNum(includedHeaders.length)
   for (let i = 0; i < includedHeaders.length; i++) {
