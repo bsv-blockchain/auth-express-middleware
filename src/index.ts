@@ -689,7 +689,12 @@ function buildAuthMessageFromRequest(
   const includedHeaders: [string, string][] = []
   for (let [k, v] of Object.entries(req.headers)) {
     k = k.toLowerCase()
-    if ((k.startsWith('x-bsv-') || k === 'authorization') && !k.startsWith('x-bsv-auth')) {
+    // Normalize the Content-Type header by removing any parameters.
+    if (k === 'content-type') {
+      v = (v as string).split(';')[0].trim()
+    }
+
+    if ((k.startsWith('x-bsv-') || k === 'content-type' || k === 'authorization') && !k.startsWith('x-bsv-auth')) {
       includedHeaders.push([k, v as string])
     }
   }

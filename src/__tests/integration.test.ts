@@ -425,4 +425,24 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     console.log('Data from second AuthFetch instance (after server restart):', data2)
     expect(data2).toBeDefined()
   }, 150000)
+
+  test('Test 15: POST request with JSON header containing charset injection', async () => {
+    const walletWithRequests = new CompletedProtoWallet(privKey)
+    const authFetch = new AuthFetch(walletWithRequests)
+    const result = await authFetch.fetch(
+      'http://localhost:3000/other-endpoint',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json; charset=utf-8'
+        },
+        body: JSON.stringify({ message: 'Testing charset injection normalization!' })
+      }
+    )
+    expect(result.status).toBe(200)
+    const jsonResponse = await result.json()
+    console.log(jsonResponse)
+    expect(jsonResponse).toBeDefined()
+  }, 15000)
+
 })
