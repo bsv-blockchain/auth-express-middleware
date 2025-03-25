@@ -849,7 +849,7 @@ function buildResponsePayload(
   // - Include custom headers prefixed with x-bsv (excluding those starting with x-bsv-auth)
   // - Include the authorization header
   const includedHeaders: Array<[string, string]> = []
-  responseHeaders.forEach((value, key) => {
+  Object.entries(responseHeaders).forEach(([key, value]) => {
     const lowerKey = key.toLowerCase()
     if ((lowerKey.startsWith('x-bsv-') || lowerKey === 'authorization') && !lowerKey.startsWith('x-bsv-auth')) {
       includedHeaders.push([lowerKey, value])
