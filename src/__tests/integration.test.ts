@@ -1,15 +1,11 @@
 /**
  * tests/AuthFetch.test.ts
  */
-import fs from 'fs'
-import path from 'path'
 import {
   CompletedProtoWallet,
-  MasterCertificate,
   PrivateKey,
   RequestedCertificateTypeIDAndFieldList,
   Utils,
-  VerifiableCertificate,
   AuthFetch
 } from '@bsv/sdk'
 import { Server } from 'http'
@@ -62,6 +58,25 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     const jsonResponse = await result.json()
     console.log(jsonResponse)
     expect(jsonResponse).toBeDefined()
+  }, 1500000)
+
+  test('Test 1b: Simple POST request with JSON resulting in 500 error code', async () => {
+    const walletWithRequests = new MockWallet(privKey)
+    const authFetch = new AuthFetch(walletWithRequests)
+    const result = await authFetch.fetch(
+      'http://localhost:3000/error-500',
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ message: 'Hello from JSON!' })
+      }
+    )
+    expect(result.status).toBe(500)
+    const jsonResponse = await result.json()
+    console.log(jsonResponse)
+    expect(jsonResponse).toHaveProperty('code', 'ERR_BAD_THING')
   }, 1500000)
 
   test('Test 2: POST request with URL-encoded data', async () => {

@@ -87,6 +87,14 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
     res.send('This is another endpoint.')
   })
 
+  app.post('/error-500', (req: Request, res: Response) => {
+    res.status(500).json({
+      status: 'error',
+      code: 'ERR_BAD_THING',
+      description: 'A bad thing has happened.'
+    })
+  })
+
   app.post('/other-endpoint', (req: Request, res: Response) => {
     res.status(200).send({ message: 'This is another endpoint. 😅' })
   })
