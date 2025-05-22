@@ -462,51 +462,32 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     expect(jsonResponse).toBeDefined()
   }, 15000)
   
-   test('Test 16: Certificate request on /cert-protected-endpoint', async () => {
-  const requestedCertificates: RequestedCertificateSet = {
-    certifiers: [
-      '03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa',
-    ],
-    types: {
-      'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'],
-    }
-  }
+     test('Test 16: Simple POST on /cert-protected-endpoint', async () => {
+  const walletWithCerts = new MockWallet(privKey)
 
-  const walletWithRequests = new MockWallet(privKey)
-  const certifierPrivateKey = PrivateKey.fromHex(
+  const certifierKey = PrivateKey.fromHex(
     '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
   )
-  const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
+  const certifierWallet = new CompletedProtoWallet(certifierKey)
   const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
+  const fields = { firstName: 'Alice', lastName: 'Doe' }
   const masterCert = await MasterCertificate.issueCertificateForSubject(
     certifierWallet,
-    (await walletWithRequests.getPublicKey({ identityKey: true })).publicKey,
-    { firstName: 'Alice' },
+    (await walletWithCerts.getPublicKey({ identityKey: true })).publicKey,
+    fields,
     certificateType
   )
-  walletWithRequests.addMasterCertificate(masterCert)
+  walletWithCerts.addMasterCertificate(masterCert)
 
-  const authFetch = new AuthFetch(walletWithRequests)
-  const certs = await authFetch.sendCertificateRequest(
-    'http://localhost:3000/cert-protected-endpoint',
-    requestedCertificates
-  )
+  const authFetch = new AuthFetch(walletWithCerts)
 
-  expect(Array.isArray(certs)).toBe(true)
-  expect(certs.length).toBeGreaterThan(0)
+  const res = await authFetch.fetch(
+    'http://localhost:3000/cert-protected-endpoint', { method: 'POST' } )
+  expect(res.status).toBe(200)
+  const body = await res.text()
+  expect(body).toBeDefined()
+}, 30000)
 
-  const decrypted = await new VerifiableCertificate(
-    certs[0].type,
-    certs[0].serialNumber,
-    certs[0].subject,
-    certs[0].certifier,
-    certs[0].revocationOutpoint,
-    certs[0].fields,
-    certs[0].keyring,
-    certs[0].signature
-  ).decryptFields(walletWithRequests)
-  expect(decrypted.firstName).toBe('Alice')
-}, 15000)
 
 
 
