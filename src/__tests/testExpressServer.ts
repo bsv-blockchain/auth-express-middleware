@@ -21,10 +21,10 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
 
   // Mocked certificate and wallet setup
   // Used in the authentication middleware as needed:
-  const certificatesToRequest: RequestedCertificateSet = {
-    certifiers: ['03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'],
-    types: { 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'] }
-  }
+  // const certificatesToRequest: RequestedCertificateSet = {
+  //   certifiers: ['03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'],
+  //   types: { 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'] }
+  // }
 
   const privKey = new PrivateKey(1)
   const mockWallet = new MockWallet(privKey);

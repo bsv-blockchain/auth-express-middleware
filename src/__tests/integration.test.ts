@@ -463,7 +463,6 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
   }, 15000)
   
   test('Test 16: Certificate request on /cert-protected-endpoint', async () => {
-    // 1. Define the same certificate set your server expects
     const requestedCertificates: RequestedCertificateSet = {
       certifiers: [
         '03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa',
@@ -473,7 +472,6 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
       }
     }
 
-    // 2. Spin up a fresh MockWallet and preload it with a master cert
     const walletWithRequests = new MockWallet(privKey)
     const certifierPrivateKey = PrivateKey.fromHex(
       '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
@@ -482,7 +480,6 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
     const fields = { firstName: 'Alice' }
 
-    // Issue and add the certificate so MockWallet can serve it
     const masterCert = await MasterCertificate.issueCertificateForSubject(
       certifierWallet,
       (await walletWithRequests.getPublicKey({ identityKey: true })).publicKey,
@@ -491,19 +488,16 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     )
     walletWithRequests.addMasterCertificate(masterCert)
 
-    // 3. Create AuthFetch and request the certs from your protected route
     const authFetch = new AuthFetch(walletWithRequests)
     const certs = await authFetch.sendCertificateRequest(
       'http://localhost:3000/cert-protected-endpoint',
       requestedCertificates
     )
 
-    // 4. Assert we got back at least one VerifiableCertificate
     expect(certs).toBeDefined()
     expect(Array.isArray(certs)).toBe(true)
     expect(certs.length).toBeGreaterThan(0)
 
-    // (Optional) decrypt and inspect the field:
     const decrypted = await new VerifiableCertificate(
       certs[0].type,
       certs[0].serialNumber,
