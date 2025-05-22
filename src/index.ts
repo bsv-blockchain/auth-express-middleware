@@ -18,7 +18,12 @@ export interface AuthRequest extends Request {
     identityKey: PubKeyHex | 'unknown'
   }
 }
-
+export interface AuthResponse extends Response {
+  sendCertificateRequest: (
+    certsToRequest: RequestedCertificateSet,
+    identityKey: PubKeyHex
+  ) => Promise<void>
+}
 // Developers may optionally provide a handler for incoming certificates.
 export interface AuthMiddlewareOptions {
   wallet: WalletInterface
@@ -293,7 +298,7 @@ export class ExpressTransport implements Transport {
    */
   public handleIncomingRequest(
     req: AuthRequest,
-    res: Response,
+    res: AuthResponse,
     next: NextFunction,
     onCertificatesReceived?: (
       senderPublicKey: string,
@@ -909,7 +914,7 @@ function convertValueToArray(val: any, responseHeaders: Record<string, any>): nu
  * @param {AuthMiddlewareOptions} options
  * @returns {(req: Request, res: Response, next: NextFunction) => void} Express middleware
  */
-export function createAuthMiddleware(options: AuthMiddlewareOptions): (req: AuthRequest, res: Response, next: NextFunction) => void {
+export function createAuthMiddleware(options: AuthMiddlewareOptions): (req: AuthRequest, res: AuthResponse, next: NextFunction) => void {
   const {
     wallet,
     sessionManager,
@@ -945,7 +950,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions): (req: Auth
   transport.setPeer(peer)
 
   // Return the express middleware
-  return (req: AuthRequest, res: Response, next: NextFunction) => {
+  return (req: AuthRequest, res: AuthResponse, next: NextFunction) => {
     if (logger && logLevel && isLogLevelEnabled(logLevel, 'debug')) {
       getLogMethod(logger, 'debug')(`[createAuthMiddleware] Incoming request to auth middleware`, {
         path: req.path,
