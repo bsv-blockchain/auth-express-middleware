@@ -34,7 +34,7 @@ export interface AuthMiddlewareOptions {
     senderPublicKey: string,
     certs: VerifiableCertificate[],
     req: AuthRequest,
-    res: Response,
+    res: AuthResponse,
     next: NextFunction
   ) => void
 
@@ -304,7 +304,7 @@ export class ExpressTransport implements Transport {
       senderPublicKey: string,
       certs: VerifiableCertificate[],
       req: AuthRequest,
-      res: Response,
+      res: AuthResponse,
       next: NextFunction
     ) => void
   ): void {

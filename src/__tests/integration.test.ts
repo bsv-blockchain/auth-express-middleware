@@ -239,105 +239,105 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     expect(textResponse).toBeDefined()
   })
 
-  test('Test 12: Certificate request', async () => {
-    const requestedCertificates: RequestedCertificateSet = {
-      certifiers: [
-        '03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa',
-      ],
-      types: {
-        'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'],
-      }
-    }
-    const walletWithRequests = new MockWallet(privKey)
-    const certifierPrivateKey = PrivateKey.fromHex(
-      '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
-    )
-    const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
-    const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
-    const certificateSerialNumber = Utils.toBase64(new Array(32).fill(2))
-    const fields = { firstName: 'Alice', lastName: 'Doe' }
-    const masterCert = await MasterCertificate.issueCertificateForSubject(
-      certifierWallet,
-      (await walletWithRequests.getPublicKey({ identityKey: true })).publicKey,
-      fields,
-      certificateType,
-      undefined,
-      certificateSerialNumber
-    )
+  // test('Test 12: Certificate request', async () => {
+  //   const requestedCertificates: RequestedCertificateSet = {
+  //     certifiers: [
+  //       '03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa',
+  //     ],
+  //     types: {
+  //       'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'],
+  //     }
+  //   }
+  //   const walletWithRequests = new MockWallet(privKey)
+  //   const certifierPrivateKey = PrivateKey.fromHex(
+  //     '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
+  //   )
+  //   const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
+  //   const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
+  //   const certificateSerialNumber = Utils.toBase64(new Array(32).fill(2))
+  //   const fields = { firstName: 'Alice', lastName: 'Doe' }
+  //   const masterCert = await MasterCertificate.issueCertificateForSubject(
+  //     certifierWallet,
+  //     (await walletWithRequests.getPublicKey({ identityKey: true })).publicKey,
+  //     fields,
+  //     certificateType,
+  //     undefined,
+  //     certificateSerialNumber
+  //   )
 
-    walletWithRequests.addMasterCertificate(masterCert)
-    const authWithCerts = new AuthFetch(walletWithRequests)
-    const certRequests = [
-      authWithCerts.sendCertificateRequest(
-        'http://localhost:3000',
-        requestedCertificates
-      ),
-      authWithCerts.sendCertificateRequest(
-        'http://localhost:3000',
-        requestedCertificates
-      )
-    ]
-    const certs = await Promise.all(certRequests)
-    expect(certs).toBeDefined()
-    expect(certs.length).toBe(2)
-    // Add further assertions based on expected certificates
-  }, 15000)
+  //   walletWithRequests.addMasterCertificate(masterCert)
+  //   const authWithCerts = new AuthFetch(walletWithRequests)
+  //   const certRequests = [
+  //     authWithCerts.sendCertificateRequest(
+  //       'http://localhost:3000',
+  //       requestedCertificates
+  //     ),
+  //     authWithCerts.sendCertificateRequest(
+  //       'http://localhost:3000',
+  //       requestedCertificates
+  //     )
+  //   ]
+  //   const certs = await Promise.all(certRequests)
+  //   expect(certs).toBeDefined()
+  //   expect(certs.length).toBe(2)
+  //   // Add further assertions based on expected certificates
+  // }, 15000)
 
-  // NOTE: YOU MUST MODIFY THE SERVER SIDE TO REQUEST CERTIFICATES FOR THIS TEST TO PASS:
-  test('Test 13: Simple GET request with certificate requests', async () => {
-    const requestedCertificates: RequestedCertificateSet = {
-      certifiers: [
-        '03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'
-      ],
-      types: {
-        'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName']
-      }
-    }
-    const walletWithRequests = new MockWallet(privKey)
-    const certifierPrivateKey = PrivateKey.fromHex(
-      '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
-    )
-    const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
-    const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
-    const fields = { firstName: 'Alice', lastName: 'Doe' }
-    const masterCert = await MasterCertificate.issueCertificateForSubject(
-      certifierWallet,
-      (await walletWithRequests.getPublicKey({ identityKey: true })).publicKey,
-      fields,
-      certificateType
-    )
-    walletWithRequests.addMasterCertificate(masterCert)
-    const authFetchWithRequests = new AuthFetch(
-      walletWithRequests,
-      requestedCertificates
-    )
-    const result = await authFetchWithRequests.fetch('http://localhost:3000/')
-    expect(result.status).toBe(200)
-    const responseText = await result.text()
-    expect(responseText).toBeDefined()
-    const certs = authFetchWithRequests.consumeReceivedCertificates()
-    expect(certs).toBeDefined()
-    if (certs.length === 0) {
-      console.log('No certificates received.')
-    } else {
-      const cert = certs[0]
+  // // NOTE: YOU MUST MODIFY THE SERVER SIDE TO REQUEST CERTIFICATES FOR THIS TEST TO PASS:
+  // test('Test 13: Simple GET request with certificate requests', async () => {
+  //   const requestedCertificates: RequestedCertificateSet = {
+  //     certifiers: [
+  //       '03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'
+  //     ],
+  //     types: {
+  //       'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName']
+  //     }
+  //   }
+  //   const walletWithRequests = new MockWallet(privKey)
+  //   const certifierPrivateKey = PrivateKey.fromHex(
+  //     '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
+  //   )
+  //   const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
+  //   const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
+  //   const fields = { firstName: 'Alice', lastName: 'Doe' }
+  //   const masterCert = await MasterCertificate.issueCertificateForSubject(
+  //     certifierWallet,
+  //     (await walletWithRequests.getPublicKey({ identityKey: true })).publicKey,
+  //     fields,
+  //     certificateType
+  //   )
+  //   walletWithRequests.addMasterCertificate(masterCert)
+  //   const authFetchWithRequests = new AuthFetch(
+  //     walletWithRequests,
+  //     requestedCertificates
+  //   )
+  //   const result = await authFetchWithRequests.fetch('http://localhost:3000/')
+  //   expect(result.status).toBe(200)
+  //   const responseText = await result.text()
+  //   expect(responseText).toBeDefined()
+  //   const certs = authFetchWithRequests.consumeReceivedCertificates()
+  //   expect(certs).toBeDefined()
+  //   if (certs.length === 0) {
+  //     console.log('No certificates received.')
+  //   } else {
+  //     const cert = certs[0]
 
-      const verifiableCertificate = new VerifiableCertificate(
-        cert.type,
-        cert.serialNumber,
-        cert.subject,
-        cert.certifier,
-        cert.revocationOutpoint,
-        cert.fields,
-        cert.keyring,
-        cert.signature
-      )
+  //     const verifiableCertificate = new VerifiableCertificate(
+  //       cert.type,
+  //       cert.serialNumber,
+  //       cert.subject,
+  //       cert.certifier,
+  //       cert.revocationOutpoint,
+  //       cert.fields,
+  //       cert.keyring,
+  //       cert.signature
+  //     )
 
-      const decryptedFields = await verifiableCertificate.decryptFields(walletWithRequests)
-      console.log(decryptedFields)
-      expect(Object.keys(cert.keyring) === Object.keys(decryptedFields))
-    }
-  }, 300000)
+  //     const decryptedFields = await verifiableCertificate.decryptFields(walletWithRequests)
+  //     console.log(decryptedFields)
+  //     expect(Object.keys(cert.keyring) === Object.keys(decryptedFields))
+  //   }
+  // }, 300000)
 
   // --------------------------------------------------------------------------
   // Edge-Case Tests
@@ -461,5 +461,59 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     console.log(jsonResponse)
     expect(jsonResponse).toBeDefined()
   }, 15000)
+  
+  test('Test 16: Certificate request on /cert-protected-endpoint', async () => {
+    // 1. Define the same certificate set your server expects
+    const requestedCertificates: RequestedCertificateSet = {
+      certifiers: [
+        '03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa',
+      ],
+      types: {
+        'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'],
+      }
+    }
 
+    // 2. Spin up a fresh MockWallet and preload it with a master cert
+    const walletWithRequests = new MockWallet(privKey)
+    const certifierPrivateKey = PrivateKey.fromHex(
+      '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
+    )
+    const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
+    const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
+    const fields = { firstName: 'Alice' }
+
+    // Issue and add the certificate so MockWallet can serve it
+    const masterCert = await MasterCertificate.issueCertificateForSubject(
+      certifierWallet,
+      (await walletWithRequests.getPublicKey({ identityKey: true })).publicKey,
+      fields,
+      certificateType
+    )
+    walletWithRequests.addMasterCertificate(masterCert)
+
+    // 3. Create AuthFetch and request the certs from your protected route
+    const authFetch = new AuthFetch(walletWithRequests)
+    const certs = await authFetch.sendCertificateRequest(
+      'http://localhost:3000/cert-protected-endpoint',
+      requestedCertificates
+    )
+
+    // 4. Assert we got back at least one VerifiableCertificate
+    expect(certs).toBeDefined()
+    expect(Array.isArray(certs)).toBe(true)
+    expect(certs.length).toBeGreaterThan(0)
+
+    // (Optional) decrypt and inspect the field:
+    const decrypted = await new VerifiableCertificate(
+      certs[0].type,
+      certs[0].serialNumber,
+      certs[0].subject,
+      certs[0].certifier,
+      certs[0].revocationOutpoint,
+      certs[0].fields,
+      certs[0].keyring,
+      certs[0].signature
+    ).decryptFields(walletWithRequests)
+    expect(decrypted.firstName).toBe('Alice')
+  }, 15000)
 })
