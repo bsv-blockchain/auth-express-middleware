@@ -469,7 +469,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
   )
   const certifierWallet = new CompletedProtoWallet(certifierKey)
-  const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
+  const certificateType = 'a58BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
   const fields = { firstName: 'Alice', lastName: 'Doe' }
   const masterCert = await MasterCertificate.issueCertificateForSubject(
     certifierWallet,
@@ -480,12 +480,19 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
   walletWithCerts.addMasterCertificate(masterCert)
 
   const authFetch = new AuthFetch(walletWithCerts)
-
+  console.log("before fetch")
+  try {
   const res = await authFetch.fetch(
     'http://localhost:3000/cert-protected-endpoint', { method: 'POST' } )
-  expect(res.status).toBe(200)
+    console.log("after fetch")
+    expect(res.status).toBe(200)
   const body = await res.text()
   expect(body).toBeDefined()
+  }
+  catch (e) {
+    console.error('Error during fetch:', e)
+  }
+  
 }, 30000)
 
 

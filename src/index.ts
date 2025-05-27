@@ -523,10 +523,12 @@ export class ExpressTransport implements Transport {
                     certsToRequest: RequestedCertificateSet,
                     identityKey: string
                   ) => {
-                    if (this.openNonGeneralHandles[identityKey]) {
-                      this.openNonGeneralHandles[identityKey].push({ res, next })
+                    let peerNonce = this.peer?.sessionManager.getSession(identityKey)?.peerNonce
+                    if (this.openNonGeneralHandles[peerNonce!]) {
+                      this.openNonGeneralHandles[peerNonce!].push({ res, next })
                     } else {
-                      this.openNonGeneralHandles[identityKey] = [{ res, next }]
+                      this.openNonGeneralHandles[peerNonce!] = [{ res, next }]
+
                     }
                     this.log('info', 'Sending certificate request', {
                       certsToRequest,

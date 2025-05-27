@@ -3,7 +3,7 @@ import bodyParser from 'body-parser'
 import { CompletedProtoWallet, MasterCertificate, PrivateKey, RequestedCertificateSet, VerifiableCertificate } from '@bsv/sdk'
 import { MockWallet } from './MockWallet'
 import { createAuthMiddleware } from '../index'
-
+import { AuthResponse } from '../index'
 // May be necessary when testing depending on your environment:
 // import * as crypto from 'crypto'
 // global.self = { crypto }
@@ -98,22 +98,22 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
   app.post('/other-endpoint', (req: Request, res: Response) => {
     res.status(200).send({ message: 'This is another endpoint. 😅' })
   })
+app.post('/cert-protected-endpoint', async (req: Request, res: Response) => {
+  console.log('Received POST body:', req.body)
 
-  app.post('/cert-protected-endpoint', (req: Request, res: Response, next: NextFunction) => {
-    console.log('Received POST body:', req.body)
-    const certsToRequest: RequestedCertificateSet = {
-      certifiers: ['03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'],
-      types: { 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'] }
-    };
-    (res as any).sendCertificateRequest(certsToRequest, (req as any).auth.identityKey)
-     .then(() => {
-        res.status(200).send('Certificates received')
-      })
-      .catch(err => {
-        console.error('Cert request failed:', err)
-        next(err)
-      })
-  })
+  const identityKey = (req as any).auth?.identityKey
+
+  const certsToRequest: RequestedCertificateSet = {
+    certifiers: ['03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'],
+    types: {
+      'a58BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName']
+    }
+  }
+    await (res as any).sendCertificateRequest(certsToRequest, identityKey)
+})
+
+
+
 
   app.post('/payment-protected', (req: Request, res: Response) => {
     res.json({ message: 'You must have paid!' })
