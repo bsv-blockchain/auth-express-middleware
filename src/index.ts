@@ -335,7 +335,9 @@ export class ExpressTransport implements Transport {
         } else {
           this.openNonGeneralHandles[requestId] = [{ res, next }]
         }
-
+        if(req.body.messageType == 'hangingRequest'){
+          return
+        }
         if (!this.peer.sessionManager.hasSession(message.identityKey)) {
           const listenerId = this.peer.listenForCertificatesReceived(
             (senderPublicKey: string, certs: VerifiableCertificate[]) => {
@@ -523,18 +525,17 @@ export class ExpressTransport implements Transport {
                     certsToRequest: RequestedCertificateSet,
                     identityKey: string
                   ) => {
-                    let peerNonce = this.peer?.sessionManager.getSession(identityKey)?.peerNonce
-                    if (this.openNonGeneralHandles[peerNonce!]) {
-                      this.openNonGeneralHandles[peerNonce!].push({ res, next })
-                    } else {
-                      this.openNonGeneralHandles[peerNonce!] = [{ res, next }]
-
-                    }
+                    // let peerNonce = this.peer?.sessionManager.getSession(identityKey)?.peerNonce
+                    // if (this.openNonGeneralHandles[peerNonce!]) {
+                    //   this.openNonGeneralHandles[peerNonce!].push({ res, next })
+                    // } else {
+                    //   this.openNonGeneralHandles[peerNonce!] = [{ res, next }]
                     this.log('info', 'Sending certificate request', {
                       certsToRequest,
                       identityKey
                     })
                     await this.peer?.requestCertificates(certsToRequest, identityKey)
+                    await new Promise(resolve => setTimeout(resolve, 1000)); //
                   }
 
                 if (

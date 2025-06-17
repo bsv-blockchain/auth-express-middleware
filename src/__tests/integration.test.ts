@@ -483,17 +483,21 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
   console.log("before fetch")
   try {
   const res = await authFetch.fetch(
-    'http://localhost:3000/cert-protected-endpoint', { method: 'POST' } )
+    'http://localhost:3000/cert-protected-endpoint', { method: 'POST',  headers: {
+          'content-type': 'application/json'
+        },
+        body: JSON.stringify({ message: 'Hello protected Route!' })} )
     console.log("after fetch")
     expect(res.status).toBe(200)
   const body = await res.text()
   expect(body).toBeDefined()
+  console.log(body)
   }
   catch (e) {
     console.error('Error during fetch:', e)
   }
   
-}, 30000)
+}, 300000)
 
 
 

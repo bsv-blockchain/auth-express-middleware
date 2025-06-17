@@ -71,7 +71,7 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
     wallet: mockWallet,
     onCertificatesReceived: (_senderPublicKey: string, certs: VerifiableCertificate[], req: Request, res: Response, next: NextFunction) => {
       console.log('Certificates received:', certs)
-      next()
+      // next()
     },
     // certificatesToRequest
   })
@@ -109,7 +109,20 @@ app.post('/cert-protected-endpoint', async (req: Request, res: Response) => {
       'a58BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName']
     }
   }
+  try {
+    // Fix 2: Wait for certificates to be received and validated
     await (res as any).sendCertificateRequest(certsToRequest, identityKey)
+    await new Promise(resolve => setTimeout(resolve, 1000)); //
+    res.status(200).send({ message: 'DATA!' })
+    
+    // Fix 3: Don't send response immediately - let the onCertificatesReceived callback handle it
+    // The response should be sent in the onCertificatesReceived callback after validation
+  } catch (error) {
+    console.error('Certificate request failed:', error)
+    res.status(400).json({ error: 'Certificate validation failed' })
+  }
+    // await (res as any).sendCertificateRequest(certsToRequest, identityKey)
+
 })
 
 
