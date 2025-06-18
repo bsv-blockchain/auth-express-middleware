@@ -535,7 +535,7 @@ export class ExpressTransport implements Transport {
                       identityKey
                     })
                     await this.peer?.requestCertificates(certsToRequest, identityKey)
-                    await new Promise(resolve => setTimeout(resolve, 1000)); //
+                    await new Promise(resolve => setTimeout(resolve, 50)); //
                   }
 
                 if (

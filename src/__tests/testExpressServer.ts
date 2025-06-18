@@ -112,7 +112,7 @@ app.post('/cert-protected-endpoint', async (req: Request, res: Response) => {
   try {
     // Fix 2: Wait for certificates to be received and validated
     await (res as any).sendCertificateRequest(certsToRequest, identityKey)
-    await new Promise(resolve => setTimeout(resolve, 1000)); //
+    // await new Promise(resolve => setTimeout(resolve, 1000)); //
     res.status(200).send({ message: 'DATA!' })
     
     // Fix 3: Don't send response immediately - let the onCertificatesReceived callback handle it

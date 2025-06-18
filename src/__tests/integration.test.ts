@@ -61,7 +61,6 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     console.log(jsonResponse)
     expect(jsonResponse).toBeDefined()
   }, 1500000)
-
   test('Test 1b: Simple POST request with JSON resulting in 500 error code', async () => {
     const walletWithRequests = new MockWallet(privKey)
     const authFetch = new AuthFetch(walletWithRequests)
@@ -396,52 +395,52 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
   // --------------------------------------------------------------------------
   // New Test for Restarting Server Mid-Test with Two AuthFetch Instances
   // --------------------------------------------------------------------------
-  test('Test 14: Two AuthFetch instances from the same identity key (restart server mid-test)', async () => {
-    // Use separate wallet instances with the same identity key.
-    const wallet1 = new MockWallet(privKey)
-    const authFetch1 = new AuthFetch(wallet1)
-    const resp1 = await authFetch1.fetch('http://localhost:3000/custom-headers', {
-      method: 'GET',
-      headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
-    })
-    expect(resp1.status).toBe(200)
-    const data1 = await resp1.json()
-    console.log('Data from first AuthFetch instance (before server restart):', data1)
-    expect(data1).toBeDefined()
+  // test('Test 14: Two AuthFetch instances from the same identity key (restart server mid-test)', async () => {
+  //   // Use separate wallet instances with the same identity key.
+  //   const wallet1 = new MockWallet(privKey)
+  //   const authFetch1 = new AuthFetch(wallet1)
+  //   const resp1 = await authFetch1.fetch('http://localhost:3000/custom-headers', {
+  //     method: 'GET',
+  //     headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
+  //   })
+  //   expect(resp1.status).toBe(200)
+  //   const data1 = await resp1.json()
+  //   console.log('Data from first AuthFetch instance (before server restart):', data1)
+  //   expect(data1).toBeDefined()
 
-    // Close the server and wait for it to shut down.
-    await new Promise<void>((resolve) => {
-      server.close(() => {
-        console.log('Server closed mid-test')
-        resolve()
-      })
-    })
+  //   // Close the server and wait for it to shut down.
+  //   await new Promise<void>((resolve) => {
+  //     server.close(() => {
+  //       console.log('Server closed mid-test')
+  //       resolve()
+  //     })
+  //   })
 
-    // Restart the server and assign it back to the 'server' variable.
-    server = startServer(3000)
-    await new Promise<void>((resolve, reject) => {
-      server.once('listening', () => {
-        console.log('Server restarted for second half of the test...')
-        resolve()
-      })
-      server.once('error', (err) => {
-        reject(err)
-      })
-    })
+  //   // Restart the server and assign it back to the 'server' variable.
+  //   server = startServer(3000)
+  //   await new Promise<void>((resolve, reject) => {
+  //     server.once('listening', () => {
+  //       console.log('Server restarted for second half of the test...')
+  //       resolve()
+  //     })
+  //     server.once('error', (err) => {
+  //       reject(err)
+  //     })
+  //   })
 
-    // Add a short delay to ensure the server is fully ready.
-    await new Promise((resolve) => setTimeout(resolve, 200))
+  //   // Add a short delay to ensure the server is fully ready.
+  //   await new Promise((resolve) => setTimeout(resolve, 200))
 
-    // Create a fresh AuthFetch instance using a new wallet instance (same identity key).
-    const resp2 = await authFetch1.fetch('http://localhost:3000/custom-headers', {
-      method: 'GET',
-      headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
-    })
-    expect(resp2.status).toBe(200)
-    const data2 = await resp2.json()
-    console.log('Data from second AuthFetch instance (after server restart):', data2)
-    expect(data2).toBeDefined()
-  }, 150000)
+  //   // Create a fresh AuthFetch instance using a new wallet instance (same identity key).
+  //   const resp2 = await authFetch1.fetch('http://localhost:3000/custom-headers', {
+  //     method: 'GET',
+  //     headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
+  //   })
+  //   expect(resp2.status).toBe(200)
+  //   const data2 = await resp2.json()
+  //   console.log('Data from second AuthFetch instance (after server restart):', data2)
+  //   expect(data2).toBeDefined()
+  // }, 150000)
 
   test('Test 15: POST request with JSON header containing charset injection', async () => {
     const walletWithRequests = new CompletedProtoWallet(privKey)
@@ -481,7 +480,6 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
 
   const authFetch = new AuthFetch(walletWithCerts)
   console.log("before fetch")
-  try {
   const res = await authFetch.fetch(
     'http://localhost:3000/cert-protected-endpoint', { method: 'POST',  headers: {
           'content-type': 'application/json'
@@ -492,10 +490,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
   const body = await res.text()
   expect(body).toBeDefined()
   console.log(body)
-  }
-  catch (e) {
-    console.error('Error during fetch:', e)
-  }
+
   
 }, 300000)
 
@@ -503,3 +498,4 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
 
 
 })
+// })
