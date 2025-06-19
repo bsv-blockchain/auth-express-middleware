@@ -329,9 +329,6 @@ export class ExpressTransport implements Transport {
         } else {
           this.openNonGeneralHandles[requestId] = [{ res, next }]
         }
-        if(req.body.messageType == 'hangingRequest'){
-          return
-        }
         if (!this.peer.sessionManager.hasSession(message.identityKey)) {
           const listenerId = this.peer.listenForCertificatesReceived(
             (senderPublicKey: string, certs: VerifiableCertificate[]) => {
