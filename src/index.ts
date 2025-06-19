@@ -362,7 +362,7 @@ export class ExpressTransport implements Transport {
               }
 
               this.openNonGeneralHandles[message.initialNonce!].shift()
-              // Note: do we ever stop listening for certificates?
+              this.peer?.stopListeningForCertificatesReceived(listenerId)
             })
           this.log('debug', 'listenForCertificatesReceived registered', { listenerId })
         }

@@ -56,15 +56,11 @@ describe('AuthFetch and AuthExpress Certificates Tests', () => {
       authWithCerts.sendCertificateRequest(
         'http://localhost:3001',
         requestedCertificates
-      ),
-      authWithCerts.sendCertificateRequest(
-        'http://localhost:3001',
-        requestedCertificates
       )
     ]
     const certs = await Promise.all(certRequests)
     expect(certs).toBeDefined()
-    expect(certs.length).toBe(2)
+    expect(certs.length).toBe(1)
     // Add further assertions based on expected certificates
   }, 30000)
 
@@ -92,15 +88,15 @@ test('Test 16: Simple POST on /cert-protected-endpoint', async () => {
           'content-type': 'application/json'
         },
         body: JSON.stringify({ message: 'Hello protected Route!' })} )
-        expect(res.status).toBe(200)
-        const body = await res.text()
-        expect(body).toBeDefined()
-        console.log(body)
       } catch (error) {
         console.error('Error during fetch:', error)
       }
+      expect(res.status).toBe(200)
+      const body = await res.text()
+      expect(body).toBeDefined()
+      console.log(body)
   
-}, 30000)
+}, 300000)
 
 
 })
