@@ -349,6 +349,7 @@ export class ExpressTransport implements Transport {
                   senderPublicKey,
                   certs
                 })
+                // this.openNonGeneralHandles[message.initialNonce!][0].res.json({ status: 'certificate received' })
                 if (typeof onCertificatesReceived === 'function') {
                   onCertificatesReceived(senderPublicKey, certs, req, res, next)
                 }

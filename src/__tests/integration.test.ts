@@ -238,88 +238,6 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     expect(textResponse).toBeDefined()
   })
 
-  test('Test 12: Certificate request', async () => {
-    const requestedCertificates: RequestedCertificateSet = {
-      certifiers: [
-        '03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa',
-      ],
-      types: {
-        'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'],
-      }
-    }
-    const walletWithRequests = new MockWallet(privKey)
-    const authWithCerts = new AuthFetch(walletWithRequests)
-    const certRequests = [
-      authWithCerts.sendCertificateRequest(
-        'http://localhost:3000',
-        requestedCertificates
-      ),
-      authWithCerts.sendCertificateRequest(
-        'http://localhost:3000',
-        requestedCertificates
-      )
-    ]
-    const certs = await Promise.all(certRequests)
-    expect(certs).toBeDefined()
-    expect(certs.length).toBe(2)
-    // Add further assertions based on expected certificates
-  }, 15000)
-
-  // // NOTE: YOU MUST MODIFY THE SERVER SIDE TO REQUEST CERTIFICATES FOR THIS TEST TO PASS:
-  // test('Test 13: Simple GET request with certificate requests', async () => {
-  //   const requestedCertificates: RequestedCertificateSet = {
-  //     certifiers: [
-  //       '03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'
-  //     ],
-  //     types: {
-  //       'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName']
-  //     }
-  //   }
-  //   const walletWithRequests = new MockWallet(privKey)
-  //   const certifierPrivateKey = PrivateKey.fromHex(
-  //     '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
-  //   )
-  //   const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
-  //   const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
-  //   const fields = { firstName: 'Alice', lastName: 'Doe' }
-  //   const masterCert = await MasterCertificate.issueCertificateForSubject(
-  //     certifierWallet,
-  //     (await walletWithRequests.getPublicKey({ identityKey: true })).publicKey,
-  //     fields,
-  //     certificateType
-  //   )
-  //   walletWithRequests.addMasterCertificate(masterCert)
-  //   const authFetchWithRequests = new AuthFetch(
-  //     walletWithRequests,
-  //     requestedCertificates
-  //   )
-  //   const result = await authFetchWithRequests.fetch('http://localhost:3000/cert-protected-endpoint')
-  //   expect(result.status).toBe(200)
-  //   const responseText = await result.text()
-  //   expect(responseText).toBeDefined()
-  //   const certs = authFetchWithRequests.consumeReceivedCertificates()
-  //   expect(certs).toBeDefined()
-  //   if (certs.length === 0) {
-  //     console.log('No certificates received.')
-  //   } else {
-  //     const cert = certs[0]
-
-  //     const verifiableCertificate = new VerifiableCertificate(
-  //       cert.type,
-  //       cert.serialNumber,
-  //       cert.subject,
-  //       cert.certifier,
-  //       cert.revocationOutpoint,
-  //       cert.fields,
-  //       cert.keyring,
-  //       cert.signature
-  //     )
-
-  //     const decryptedFields = await verifiableCertificate.decryptFields(walletWithRequests)
-  //     console.log(decryptedFields)
-  //     expect(Object.keys(cert.keyring) === Object.keys(decryptedFields))
-  //   }
-  // }, 300000)
 
   // --------------------------------------------------------------------------
   // Edge-Case Tests
@@ -378,7 +296,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
   // --------------------------------------------------------------------------
   // New Test for Restarting Server Mid-Test with Two AuthFetch Instances
   // --------------------------------------------------------------------------
-  test('Test 14: Two AuthFetch instances from the same identity key (restart server mid-test)', async () => {
+  test('Test 12: Two AuthFetch instances from the same identity key (restart server mid-test)', async () => {
     // Use separate wallet instances with the same identity key.
     const wallet1 = new MockWallet(privKey)
     const authFetch1 = new AuthFetch(wallet1)
@@ -425,7 +343,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     expect(data2).toBeDefined()
   }, 150000)
 
-  test('Test 15: POST request with JSON header containing charset injection', async () => {
+  test('Test 13: POST request with JSON header containing charset injection', async () => {
     const walletWithRequests = new CompletedProtoWallet(privKey)
     const authFetch = new AuthFetch(walletWithRequests)
     const result = await authFetch.fetch(
@@ -443,8 +361,5 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     console.log(jsonResponse)
     expect(jsonResponse).toBeDefined()
   }, 15000)
-  
-
-
 
 })
