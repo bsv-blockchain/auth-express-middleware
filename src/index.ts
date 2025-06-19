@@ -18,12 +18,6 @@ export interface AuthRequest extends Request {
     identityKey: PubKeyHex | 'unknown'
   }
 }
-export interface AuthResponse extends Response {
-  sendCertificateRequest: (
-    certsToRequest: RequestedCertificateSet,
-    identityKey: PubKeyHex
-  ) => Promise<void>
-}
 // Developers may optionally provide a handler for incoming certificates.
 export interface AuthMiddlewareOptions {
   wallet: WalletInterface
@@ -34,7 +28,7 @@ export interface AuthMiddlewareOptions {
     senderPublicKey: string,
     certs: VerifiableCertificate[],
     req: AuthRequest,
-    res: AuthResponse,
+    res: Response,
     next: NextFunction
   ) => void
 
@@ -298,13 +292,13 @@ export class ExpressTransport implements Transport {
    */
   public handleIncomingRequest(
     req: AuthRequest,
-    res: AuthResponse,
+    res: Response,
     next: NextFunction,
     onCertificatesReceived?: (
       senderPublicKey: string,
       certs: VerifiableCertificate[],
       req: AuthRequest,
-      res: AuthResponse,
+      res: Response,
       next: NextFunction
     ) => void
   ): void {
@@ -358,7 +352,6 @@ export class ExpressTransport implements Transport {
                   senderPublicKey,
                   certs
                 })
-                this.openNonGeneralHandles[message.initialNonce!][0].res.json({ status: 'certificate received' })
                 if (typeof onCertificatesReceived === 'function') {
                   onCertificatesReceived(senderPublicKey, certs, req, res, next)
                 }
@@ -518,24 +511,6 @@ export class ExpressTransport implements Transport {
                       responseBody = Array.from(data)
                       buildResponse()
                     })
-                  }
-
-                  // Add sendCertificateRequest handler
-                  ; (res as any).sendCertificateRequest = async (
-                    certsToRequest: RequestedCertificateSet,
-                    identityKey: string
-                  ) => {
-                    // let peerNonce = this.peer?.sessionManager.getSession(identityKey)?.peerNonce
-                    // if (this.openNonGeneralHandles[peerNonce!]) {
-                    //   this.openNonGeneralHandles[peerNonce!].push({ res, next })
-                    // } else {
-                    //   this.openNonGeneralHandles[peerNonce!] = [{ res, next }]
-                    this.log('info', 'Sending certificate request', {
-                      certsToRequest,
-                      identityKey
-                    })
-                    await this.peer?.requestCertificates(certsToRequest, identityKey)
-                    await new Promise(resolve => setTimeout(resolve, 50)); //
                   }
 
                 if (
@@ -917,7 +892,7 @@ function convertValueToArray(val: any, responseHeaders: Record<string, any>): nu
  * @param {AuthMiddlewareOptions} options
  * @returns {(req: Request, res: Response, next: NextFunction) => void} Express middleware
  */
-export function createAuthMiddleware(options: AuthMiddlewareOptions): (req: AuthRequest, res: AuthResponse, next: NextFunction) => void {
+export function createAuthMiddleware(options: AuthMiddlewareOptions): (req: AuthRequest, res: Response, next: NextFunction) => void {
   const {
     wallet,
     sessionManager,
@@ -953,7 +928,7 @@ export function createAuthMiddleware(options: AuthMiddlewareOptions): (req: Auth
   transport.setPeer(peer)
 
   // Return the express middleware
-  return (req: AuthRequest, res: AuthResponse, next: NextFunction) => {
+  return (req: AuthRequest, res: Response, next: NextFunction) => {
     if (logger && logLevel && isLogLevelEnabled(logLevel, 'debug')) {
       getLogMethod(logger, 'debug')(`[createAuthMiddleware] Incoming request to auth middleware`, {
         path: req.path,

@@ -248,23 +248,6 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
       }
     }
     const walletWithRequests = new MockWallet(privKey)
-    const certifierPrivateKey = PrivateKey.fromHex(
-      '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
-    )
-    const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
-    const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
-    const certificateSerialNumber = Utils.toBase64(new Array(32).fill(2))
-    const fields = { firstName: 'Alice', lastName: 'Doe' }
-    const masterCert = await MasterCertificate.issueCertificateForSubject(
-      certifierWallet,
-      (await walletWithRequests.getPublicKey({ identityKey: true })).publicKey,
-      fields,
-      certificateType,
-      undefined,
-      certificateSerialNumber
-    )
-
-    walletWithRequests.addMasterCertificate(masterCert)
     const authWithCerts = new AuthFetch(walletWithRequests)
     const certRequests = [
       authWithCerts.sendCertificateRequest(
@@ -395,52 +378,52 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
   // --------------------------------------------------------------------------
   // New Test for Restarting Server Mid-Test with Two AuthFetch Instances
   // --------------------------------------------------------------------------
-  // test('Test 14: Two AuthFetch instances from the same identity key (restart server mid-test)', async () => {
-  //   // Use separate wallet instances with the same identity key.
-  //   const wallet1 = new MockWallet(privKey)
-  //   const authFetch1 = new AuthFetch(wallet1)
-  //   const resp1 = await authFetch1.fetch('http://localhost:3000/custom-headers', {
-  //     method: 'GET',
-  //     headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
-  //   })
-  //   expect(resp1.status).toBe(200)
-  //   const data1 = await resp1.json()
-  //   console.log('Data from first AuthFetch instance (before server restart):', data1)
-  //   expect(data1).toBeDefined()
+  test('Test 14: Two AuthFetch instances from the same identity key (restart server mid-test)', async () => {
+    // Use separate wallet instances with the same identity key.
+    const wallet1 = new MockWallet(privKey)
+    const authFetch1 = new AuthFetch(wallet1)
+    const resp1 = await authFetch1.fetch('http://localhost:3000/custom-headers', {
+      method: 'GET',
+      headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
+    })
+    expect(resp1.status).toBe(200)
+    const data1 = await resp1.json()
+    console.log('Data from first AuthFetch instance (before server restart):', data1)
+    expect(data1).toBeDefined()
 
-  //   // Close the server and wait for it to shut down.
-  //   await new Promise<void>((resolve) => {
-  //     server.close(() => {
-  //       console.log('Server closed mid-test')
-  //       resolve()
-  //     })
-  //   })
+    // Close the server and wait for it to shut down.
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        console.log('Server closed mid-test')
+        resolve()
+      })
+    })
 
-  //   // Restart the server and assign it back to the 'server' variable.
-  //   server = startServer(3000)
-  //   await new Promise<void>((resolve, reject) => {
-  //     server.once('listening', () => {
-  //       console.log('Server restarted for second half of the test...')
-  //       resolve()
-  //     })
-  //     server.once('error', (err) => {
-  //       reject(err)
-  //     })
-  //   })
+    // Restart the server and assign it back to the 'server' variable.
+    server = startServer(3000)
+    await new Promise<void>((resolve, reject) => {
+      server.once('listening', () => {
+        console.log('Server restarted for second half of the test...')
+        resolve()
+      })
+      server.once('error', (err) => {
+        reject(err)
+      })
+    })
 
-  //   // Add a short delay to ensure the server is fully ready.
-  //   await new Promise((resolve) => setTimeout(resolve, 200))
+    // Add a short delay to ensure the server is fully ready.
+    await new Promise((resolve) => setTimeout(resolve, 200))
 
-  //   // Create a fresh AuthFetch instance using a new wallet instance (same identity key).
-  //   const resp2 = await authFetch1.fetch('http://localhost:3000/custom-headers', {
-  //     method: 'GET',
-  //     headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
-  //   })
-  //   expect(resp2.status).toBe(200)
-  //   const data2 = await resp2.json()
-  //   console.log('Data from second AuthFetch instance (after server restart):', data2)
-  //   expect(data2).toBeDefined()
-  // }, 150000)
+    // Create a fresh AuthFetch instance using a new wallet instance (same identity key).
+    const resp2 = await authFetch1.fetch('http://localhost:3000/custom-headers', {
+      method: 'GET',
+      headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
+    })
+    expect(resp2.status).toBe(200)
+    const data2 = await resp2.json()
+    console.log('Data from second AuthFetch instance (after server restart):', data2)
+    expect(data2).toBeDefined()
+  }, 150000)
 
   test('Test 15: POST request with JSON header containing charset injection', async () => {
     const walletWithRequests = new CompletedProtoWallet(privKey)
@@ -461,41 +444,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     expect(jsonResponse).toBeDefined()
   }, 15000)
   
-     test('Test 16: Simple POST on /cert-protected-endpoint', async () => {
-  const walletWithCerts = new MockWallet(privKey)
-
-  const certifierKey = PrivateKey.fromHex(
-    '5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef'
-  )
-  const certifierWallet = new CompletedProtoWallet(certifierKey)
-  const certificateType = 'a58BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
-  const fields = { firstName: 'Alice', lastName: 'Doe' }
-  const masterCert = await MasterCertificate.issueCertificateForSubject(
-    certifierWallet,
-    (await walletWithCerts.getPublicKey({ identityKey: true })).publicKey,
-    fields,
-    certificateType
-  )
-  walletWithCerts.addMasterCertificate(masterCert)
-
-  const authFetch = new AuthFetch(walletWithCerts)
-  console.log("before fetch")
-  const res = await authFetch.fetch(
-    'http://localhost:3000/cert-protected-endpoint', { method: 'POST',  headers: {
-          'content-type': 'application/json'
-        },
-        body: JSON.stringify({ message: 'Hello protected Route!' })} )
-    console.log("after fetch")
-    expect(res.status).toBe(200)
-  const body = await res.text()
-  expect(body).toBeDefined()
-  console.log(body)
-
-  
-}, 300000)
-
 
 
 
 })
-// })

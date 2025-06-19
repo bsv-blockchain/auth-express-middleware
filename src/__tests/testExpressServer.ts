@@ -3,7 +3,6 @@ import bodyParser from 'body-parser'
 import { CompletedProtoWallet, MasterCertificate, PrivateKey, RequestedCertificateSet, VerifiableCertificate } from '@bsv/sdk'
 import { MockWallet } from './MockWallet'
 import { createAuthMiddleware } from '../index'
-import { AuthResponse } from '../index'
 // May be necessary when testing depending on your environment:
 // import * as crypto from 'crypto'
 // global.self = { crypto }
@@ -21,10 +20,10 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
 
   // Mocked certificate and wallet setup
   // Used in the authentication middleware as needed:
-  // const certificatesToRequest: RequestedCertificateSet = {
-  //   certifiers: ['03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'],
-  //   types: { 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'] }
-  // }
+  const certificatesToRequest: RequestedCertificateSet = {
+    certifiers: ['03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'],
+    types: { 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'] }
+  }
 
   const privKey = new PrivateKey(1)
   const mockWallet = new MockWallet(privKey);
@@ -71,7 +70,6 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
     wallet: mockWallet,
     onCertificatesReceived: (_senderPublicKey: string, certs: VerifiableCertificate[], req: Request, res: Response, next: NextFunction) => {
       console.log('Certificates received:', certs)
-      // next()
     },
     // certificatesToRequest
   })
@@ -98,35 +96,12 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
   app.post('/other-endpoint', (req: Request, res: Response) => {
     res.status(200).send({ message: 'This is another endpoint. 😅' })
   })
-app.post('/cert-protected-endpoint', async (req: Request, res: Response) => {
+
+  app.post('/cert-protected-endpoint',  (req: Request, res: Response) => {
   console.log('Received POST body:', req.body)
-
-  const identityKey = (req as any).auth?.identityKey
-
-  const certsToRequest: RequestedCertificateSet = {
-    certifiers: ['03caa1baafa05ecbf1a5b310a7a0b00bc1633f56267d9f67b1fd6bb23b3ef1abfa'],
-    types: {
-      'a58BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName']
-    }
-  }
-  try {
-    // Fix 2: Wait for certificates to be received and validated
-    await (res as any).sendCertificateRequest(certsToRequest, identityKey)
-    // await new Promise(resolve => setTimeout(resolve, 1000)); //
-    res.status(200).send({ message: 'DATA!' })
-    
-    // Fix 3: Don't send response immediately - let the onCertificatesReceived callback handle it
-    // The response should be sent in the onCertificatesReceived callback after validation
-  } catch (error) {
-    console.error('Certificate request failed:', error)
-    res.status(400).json({ error: 'Certificate validation failed' })
-  }
+   res.status(200).send({ message: 'You must have certs!' })
     // await (res as any).sendCertificateRequest(certsToRequest, identityKey)
-
-})
-
-
-
+  })
 
   app.post('/payment-protected', (req: Request, res: Response) => {
     res.json({ message: 'You must have paid!' })
