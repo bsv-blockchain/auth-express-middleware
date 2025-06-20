@@ -1,6 +1,6 @@
 {
   "name": "@bsv/auth-express-middleware",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "BSV Blockchain mutual-authentication express middleware",
   "type": "module",
   "main": "dist/cjs/mod.js",
