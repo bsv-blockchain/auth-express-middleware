@@ -9,7 +9,7 @@ import { createAuthMiddleware } from '../index'
 
 // Create Express app instance
 // Export a function to start the server programmatically
-export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
+export const startCertServer = (port = 3001): ReturnType<typeof app.listen> => {
   const app = express()
 
   // Middleware setup
@@ -25,7 +25,7 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
     types: { 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY=': ['firstName'] }
   }
 
-  const privKey = new PrivateKey(1)
+  const privKey = new PrivateKey(2)
   const mockWallet = new MockWallet(privKey);
 
   // Asynchronous setup for certificates and middleware
@@ -65,13 +65,16 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
     res.status(200).send({ message: 'Non auth endpoint!' })
   })
 
+  let certsreceived: VerifiableCertificate []
+
   const authMiddleware = createAuthMiddleware({
     allowUnauthenticated: false,
     wallet: mockWallet,
-    onCertificatesReceived: (_senderPublicKey: string, certs: VerifiableCertificate[], req: Request, res: Response, next: NextFunction) => {
+    onCertificatesReceived: async (_senderPublicKey: string, certs: VerifiableCertificate[], req: Request, res: Response, next: NextFunction) => {
+        certsreceived = certs
       console.log('Certificates received:', certs)
     },
-    // certificatesToRequest
+    certificatesToRequest
   })
 
   // Add the mutual authentication middleware
@@ -81,55 +84,17 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
     res.send('Hello, world!')
   })
 
-  app.get('/other-endpoint', (req: Request, res: Response) => {
-    res.send('This is another endpoint.')
-  })
-
-  app.post('/error-500', (req: Request, res: Response) => {
-    res.status(500).json({
-      status: 'error',
-      code: 'ERR_BAD_THING',
-      description: 'A bad thing has happened.'
-    })
-  })
-
-  app.post('/other-endpoint', (req: Request, res: Response) => {
-    res.status(200).send({ message: 'This is another endpoint. 😅' })
-  })
-
-  app.post('/cert-protected-endpoint',  (req: Request, res: Response) => {
+  app.post('/cert-protected-endpoint', async  (req: Request, res: Response) => {
   console.log('Received POST body:', req.body)
-   res.status(200).send({ message: 'You must have certs!' })
-    // await (res as any).sendCertificateRequest(certsToRequest, identityKey)
-  })
-
-  app.post('/payment-protected', (req: Request, res: Response) => {
-    res.json({ message: 'You must have paid!' })
-  })
-
-  app.put('/put-endpoint', (req: Request, res: Response) => {
-    console.log('Received PUT body:', req.body)
-    res.send({ status: 'updated', body: req.body })
-  })
-
-  app.delete('/delete-endpoint', (req: Request, res: Response) => {
-    console.log('Received DELETE request')
-    res.send({ status: 'deleted' })
-  })
-
-  app.post('/large-upload', (req: Request, res: Response) => {
-    console.log('Received binary upload, size:', req.body.length)
-    res.send({ status: 'upload received', size: req.body.length })
-  })
-
-  app.get('/query-endpoint', (req: Request, res: Response) => {
-    console.log('Received query parameters:', req.query)
-    res.send({ status: 'query received', query: req.query })
-  })
-
-  app.get('/custom-headers', (req: Request, res: Response) => {
-    console.log('Received headers:', req.headers)
-    res.send({ status: 'headers received', headers: req.headers })
+  //wait a moment for the certificates to be received
+  new Promise(resolve => setTimeout(resolve, 5000)).then(() => {
+    if (certsreceived) {
+      console.log('Certificates received in POST:', certsreceived)   
+      res.status(200).send({ message: 'You have certs!' })}
+    else {
+        res.status(401).send({ message: 'You must have certs!' })
+    }
+})
   })
 
   // Fallback for 404 errors

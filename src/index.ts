@@ -18,7 +18,6 @@ export interface AuthRequest extends Request {
     identityKey: PubKeyHex | 'unknown'
   }
 }
-
 // Developers may optionally provide a handler for incoming certificates.
 export interface AuthMiddlewareOptions {
   wallet: WalletInterface
@@ -330,7 +329,6 @@ export class ExpressTransport implements Transport {
         } else {
           this.openNonGeneralHandles[requestId] = [{ res, next }]
         }
-
         if (!this.peer.sessionManager.hasSession(message.identityKey)) {
           const listenerId = this.peer.listenForCertificatesReceived(
             (senderPublicKey: string, certs: VerifiableCertificate[]) => {
@@ -351,7 +349,7 @@ export class ExpressTransport implements Transport {
                   senderPublicKey,
                   certs
                 })
-                this.openNonGeneralHandles[message.initialNonce!][0].res.json({ status: 'certificate received' })
+                // this.openNonGeneralHandles[message.initialNonce!][0].res.json({ status: 'certificate received' })
                 if (typeof onCertificatesReceived === 'function') {
                   onCertificatesReceived(senderPublicKey, certs, req, res, next)
                 }
@@ -364,7 +362,7 @@ export class ExpressTransport implements Transport {
               }
 
               this.openNonGeneralHandles[message.initialNonce!].shift()
-              // Note: do we ever stop listening for certificates?
+              this.peer?.stopListeningForCertificatesReceived(listenerId)
             })
           this.log('debug', 'listenForCertificatesReceived registered', { listenerId })
         }
@@ -511,23 +509,6 @@ export class ExpressTransport implements Transport {
                       responseBody = Array.from(data)
                       buildResponse()
                     })
-                  }
-
-                  // Add sendCertificateRequest handler
-                  ; (res as any).sendCertificateRequest = async (
-                    certsToRequest: RequestedCertificateSet,
-                    identityKey: string
-                  ) => {
-                    if (this.openNonGeneralHandles[identityKey]) {
-                      this.openNonGeneralHandles[identityKey].push({ res, next })
-                    } else {
-                      this.openNonGeneralHandles[identityKey] = [{ res, next }]
-                    }
-                    this.log('info', 'Sending certificate request', {
-                      certsToRequest,
-                      identityKey
-                    })
-                    await this.peer?.requestCertificates(certsToRequest, identityKey)
                   }
 
                 if (
