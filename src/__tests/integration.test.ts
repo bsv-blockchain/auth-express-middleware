@@ -7,8 +7,6 @@ import {
   RequestedCertificateTypeIDAndFieldList,
   Utils,
   AuthFetch,
-  MasterCertificate,
-  VerifiableCertificate,
 } from '@bsv/sdk'
 import { Server } from 'http'
 import { startServer } from './testExpressServer'
