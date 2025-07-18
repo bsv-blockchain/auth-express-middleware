@@ -56,7 +56,7 @@
     "typescript": "^5.2.2"
   },
   "dependencies": {
-    "@bsv/sdk": "^1.6.8",
+    "@bsv/sdk": "^1.6.16",
     "express": "^5.1.0"
   }
 }
