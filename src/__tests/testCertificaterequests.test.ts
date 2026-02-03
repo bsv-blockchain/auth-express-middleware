@@ -91,8 +91,8 @@ test('Test 16: Simple POST on /cert-protected-endpoint', async () => {
       } catch (error) {
         console.error('Error during fetch:', error)
       }
-      expect(res.status).toBe(200)
-      const body = await res.text()
+      expect(res!.status).toBe(200)
+      const body = await res!.text()
       expect(body).toBeDefined()
       console.log(body)
   

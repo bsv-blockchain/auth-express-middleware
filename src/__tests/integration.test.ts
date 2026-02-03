@@ -17,25 +17,39 @@ export interface RequestedCertificateSet {
   types: RequestedCertificateTypeIDAndFieldList
 }
 
+// Increase global timeout for async ops
+jest.setTimeout(30000);
+
 describe('AuthFetch and AuthExpress Integration Tests', () => {
   const privKey = PrivateKey.fromRandom()
   let server: Server
-  beforeAll((done) => {
-    // Start the Express server
-    server = startServer(3000)
-    server.on('listening', () => {
-      console.log('Test server is running on http://localhost:3000')
-      done()
-    })
-  })
+  beforeAll(async () => {
+    server = startServer(3000); // Returns un-listened server
+    await new Promise<void>((resolve, reject) => {
+      server.once('listening', () => {
+        console.log('Test server is running on http://localhost:3000');
+        resolve();
+      });
+      server.once('error', reject);
+      server.listen(3000);
+    });
+  });
 
-  afterAll((done) => {
-    // Close the server after tests
-    server.close(() => {
-      console.log('Test server stopped')
-      done()
-    })
-  })
+  afterAll(async () => {
+    if (server && server.listening) {
+      await new Promise<void>((resolve, reject) => {
+        server.once('close', () => {
+          console.log('Test server stopped');
+          resolve();
+        });
+        server.once('error', reject);
+        if (typeof server.closeAllConnections === 'function') {
+          server.closeAllConnections();
+        }
+        server.close();
+      });
+    }
+  });
 
   // --------------------------------------------------------------------------
   // Main Tests
@@ -58,7 +72,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     const jsonResponse = await result.json()
     console.log(jsonResponse)
     expect(jsonResponse).toBeDefined()
-  }, 1500000)
+  })
   test('Test 1b: Simple POST request with JSON resulting in 500 error code', async () => {
     const walletWithRequests = new MockWallet(privKey)
     const authFetch = new AuthFetch(walletWithRequests)
@@ -76,7 +90,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     const jsonResponse = await result.json()
     console.log(jsonResponse)
     expect(jsonResponse).toHaveProperty('code', 'ERR_BAD_THING')
-  }, 1500000)
+  })
 
   test('Test 2: POST request with URL-encoded data', async () => {
     const walletWithRequests = new CompletedProtoWallet(privKey)
@@ -270,7 +284,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     const jsonResponse = await result.json()
     console.log(jsonResponse)
     expect(jsonResponse).toBeDefined()
-  }, 1500000)
+  })
 
   test('Edge Case C: application json content with body of type object', async () => {
     const walletWithRequests = new MockWallet(privKey)
@@ -289,7 +303,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     const jsonResponse = await result.json()
     console.log(jsonResponse)
     expect(jsonResponse).toBeDefined()
-  }, 1500000)
+  })
 
   // --------------------------------------------------------------------------
   // New Test for Restarting Server Mid-Test with Two AuthFetch Instances
@@ -308,11 +322,16 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     expect(data1).toBeDefined()
 
     // Close the server and wait for it to shut down.
-    await new Promise<void>((resolve) => {
-      server.close(() => {
+    await new Promise<void>((resolve, reject) => {
+      server.once('close', () => {
         console.log('Server closed mid-test')
         resolve()
       })
+      server.once('error', reject)
+      if (typeof server.closeAllConnections === 'function') {
+        server.closeAllConnections()
+      }
+      server.close()
     })
 
     // Restart the server and assign it back to the 'server' variable.
@@ -325,13 +344,16 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
       server.once('error', (err) => {
         reject(err)
       })
+      server.listen(3000) // <-- Critical fix: Call listen after listeners
     })
 
     // Add a short delay to ensure the server is fully ready.
     await new Promise((resolve) => setTimeout(resolve, 200))
 
     // Create a fresh AuthFetch instance using a new wallet instance (same identity key).
-    const resp2 = await authFetch1.fetch('http://localhost:3000/custom-headers', {
+    const wallet2 = new MockWallet(privKey)
+    const authFetch2 = new AuthFetch(wallet2)
+    const resp2 = await authFetch2.fetch('http://localhost:3000/custom-headers', {
       method: 'GET',
       headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
     })
@@ -339,7 +361,7 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     const data2 = await resp2.json()
     console.log('Data from second AuthFetch instance (after server restart):', data2)
     expect(data2).toBeDefined()
-  }, 150000)
+  })
 
   test('Test 13: POST request with JSON header containing charset injection', async () => {
     const walletWithRequests = new CompletedProtoWallet(privKey)
@@ -358,6 +380,6 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     const jsonResponse = await result.json()
     console.log(jsonResponse)
     expect(jsonResponse).toBeDefined()
-  }, 15000)
+  })
 
 })

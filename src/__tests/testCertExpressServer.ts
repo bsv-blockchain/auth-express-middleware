@@ -87,7 +87,7 @@ export const startCertServer = (port = 3001): ReturnType<typeof app.listen> => {
   app.post('/cert-protected-endpoint', async  (req: Request, res: Response) => {
   console.log('Received POST body:', req.body)
   //wait a moment for the certificates to be received
-  new Promise(resolve => setTimeout(resolve, 5000)).then(() => {
+  new Promise(resolve => setTimeout(resolve, 200000)).then(() => {
     if (certsreceived) {
       console.log('Certificates received in POST:', certsreceived)   
       res.status(200).send({ message: 'You have certs!' })}
