@@ -3,13 +3,14 @@ import bodyParser from 'body-parser'
 import { CompletedProtoWallet, MasterCertificate, PrivateKey, RequestedCertificateSet, VerifiableCertificate } from '@bsv/sdk'
 import { MockWallet } from './MockWallet'
 import { createAuthMiddleware } from '../index'
+import { Server, createServer } from 'http'
 // May be necessary when testing depending on your environment:
 // import * as crypto from 'crypto'
 // global.self = { crypto }
 
 // Create Express app instance
 // Export a function to start the server programmatically
-export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
+export const startServer = (port = 3000): Server => {
   const app = express()
 
   // Middleware setup
@@ -141,9 +142,8 @@ export const startServer = (port = 3000): ReturnType<typeof app.listen> => {
     })
   })
 
-  return app.listen(port, () => {
-    console.log(`Server is running on http://localhost:${port}`)
-  })
+  return createServer(app) // Return un-listened server
 }
 // For testing independently of integration tests:
-// startServer()
+// const server = startServer(3000);
+// server.listen(3000, () => console.log('Server is running on http://localhost:3000'))
