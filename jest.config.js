@@ -2,5 +2,6 @@
 export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  testPathIgnorePatterns: ['dist/']
+  testPathIgnorePatterns: ['dist/'],
+  modulePathIgnorePatterns: ['<rootDir>/dist/'] // Add this to ignore dist/ for module mapping
 }

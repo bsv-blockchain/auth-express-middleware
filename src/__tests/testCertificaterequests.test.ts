@@ -19,7 +19,7 @@ describe('AuthFetch and AuthExpress Certificates Tests', () => {
   let server: Server
   let sockets: any[] = []
 
-  beforeAll((done) => {
+  beforeAll(async () => {
     // Start the Express server
     server = startCertServer(3001)
     server.on('connection', (socket) => {
@@ -28,16 +28,27 @@ describe('AuthFetch and AuthExpress Certificates Tests', () => {
         sockets = sockets.filter(s => s !== socket)
       })
     })
-    server.on('listening', () => {
-      console.log('Test server is running on http://localhost:3001')
-      done()
+    await new Promise<void>((resolve, reject) => {
+      if (server.listening) {
+        console.log('Test server is running on http://localhost:3001')
+        resolve()
+      } else {
+        server.once('listening', () => {
+          console.log('Test server is running on http://localhost:3001')
+          resolve()
+        })
+        server.once('error', reject)
+      }
     })
   })
 
-  afterAll((done) => {
+  afterAll(async () => {
     sockets.forEach(socket => socket.destroy())
-    server.close()
-    done()
+    await new Promise<void>((resolve) => {
+      server.close(() => {
+        resolve()
+      })
+    })
   })
 
 
@@ -91,8 +102,8 @@ test('Test 16: Simple POST on /cert-protected-endpoint', async () => {
       } catch (error) {
         console.error('Error during fetch:', error)
       }
-      expect(res.status).toBe(200)
-      const body = await res.text()
+      expect(res!.status).toBe(200)
+      const body = await res!.text()
       expect(body).toBeDefined()
       console.log(body)
   
