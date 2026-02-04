@@ -87,6 +87,96 @@ function getLogMethod(
 }
 
 /**
+ * ResponseWriterWrapper buffers response data until signing is complete.
+ * This pattern matches the Go implementation for cleaner response handling.
+ */
+class ResponseWriterWrapper {
+  private statusCode: number = 200
+  private headers: Record<string, string> = {}
+  private body: number[] = []
+  private originalRes: Response
+  private flushed: boolean = false
+
+  constructor(res: Response) {
+    this.originalRes = res
+  }
+
+  status(code: number): this {
+    this.statusCode = code
+    return this
+  }
+
+  set(key: string | Record<string, string>, value?: string): this {
+    if (typeof key === 'object' && key !== null) {
+      for (const [k, v] of Object.entries(key)) {
+        this.headers[k.toLowerCase()] = String(v)
+      }
+    } else if (typeof key === 'string' && value !== undefined) {
+      this.headers[key.toLowerCase()] = String(value)
+    }
+    return this
+  }
+
+  send(data: any): this {
+    this.body = convertValueToArray(data, this.headers)
+    return this
+  }
+
+  json(data: any): this {
+    if (!this.headers['content-type']) {
+      this.headers['content-type'] = 'application/json'
+    }
+    this.body = Utils.toArray(JSON.stringify(data), 'utf8')
+    return this
+  }
+
+  text(data: string): this {
+    if (!this.headers['content-type']) {
+      this.headers['content-type'] = 'text/plain'
+    }
+    this.body = Utils.toArray(data, 'utf8')
+    return this
+  }
+
+  end(): this {
+    // No-op for buffering, actual end happens on flush
+    return this
+  }
+
+  getStatusCode(): number {
+    return this.statusCode
+  }
+
+  getHeaders(): Record<string, string> {
+    return this.headers
+  }
+
+  getBody(): number[] {
+    return this.body
+  }
+
+  getOriginalRes(): Response {
+    return this.originalRes
+  }
+
+  // Called after peer signs the response
+  flush(): void {
+    if (this.flushed) return
+    this.flushed = true
+
+    this.originalRes.status(this.statusCode)
+    for (const [key, value] of Object.entries(this.headers)) {
+      this.originalRes.set(key, value)
+    }
+    if (this.body.length > 0) {
+      this.originalRes.send(Buffer.from(new Uint8Array(this.body)))
+    } else {
+      this.originalRes.end()
+    }
+  }
+}
+
+/**
  * Transport implementation for Express.
  */
 export class ExpressTransport implements Transport {
@@ -330,41 +420,55 @@ export class ExpressTransport implements Transport {
           this.openNonGeneralHandles[requestId] = [{ res, next }]
         }
         if (!this.peer.sessionManager.hasSession(message.identityKey)) {
+          // Capture requestId in closure for consistent key usage
+          const handleKey = requestId
           const listenerId = this.peer.listenForCertificatesReceived(
             (senderPublicKey: string, certs: VerifiableCertificate[]) => {
-              this.log('debug', 'Certificates received event triggered', {
-                senderPublicKey,
-                certCount: certs?.length
-              })
-              if (senderPublicKey !== req.body.identityKey) {
-                return
-              }
-              if (!Array.isArray(certs) || certs.length === 0) {
-                this.log('warn', 'No certificates provided by peer', { senderPublicKey })
-                this.openNonGeneralHandles[senderPublicKey][0].res
-                  .status(400)
-                  .json({ status: 'No certificates provided' })
-              } else {
-                this.log('info', 'Certificates successfully received from peer', {
+              try {
+                this.log('debug', 'Certificates received event triggered', {
                   senderPublicKey,
-                  certs
+                  certCount: certs?.length,
+                  handleKey
                 })
-                // this.openNonGeneralHandles[message.initialNonce!][0].res.json({ status: 'certificate received' })
-                if (typeof onCertificatesReceived === 'function') {
-                  onCertificatesReceived(senderPublicKey, certs, req, res, next)
+                if (senderPublicKey !== req.body.identityKey) {
+                  return
                 }
+                if (!Array.isArray(certs) || certs.length === 0) {
+                  this.log('warn', 'No certificates provided by peer', { senderPublicKey })
+                  const handles = this.openNonGeneralHandles[handleKey]
+                  if (handles && handles.length > 0) {
+                    handles[0].res.status(400).json({ status: 'No certificates provided' })
+                  }
+                } else {
+                  this.log('info', 'Certificates successfully received from peer', {
+                    senderPublicKey,
+                    certs
+                  })
+                  if (typeof onCertificatesReceived === 'function') {
+                    onCertificatesReceived(senderPublicKey, certs, req, res, next)
+                  }
 
-                const nextFn = this.openNextHandlers[message.identityKey]
-                if (typeof nextFn === 'function') {
-                  nextFn()
-                  delete this.openNextHandlers[message.identityKey]
+                  const nextFn = this.openNextHandlers[message.identityKey]
+                  if (typeof nextFn === 'function') {
+                    nextFn()
+                    delete this.openNextHandlers[message.identityKey]
+                  }
                 }
+              } catch (error) {
+                this.log('error', 'Error in certificate listener callback', { error })
+              } finally {
+                // Always clean up - use consistent key
+                const handles = this.openNonGeneralHandles[handleKey]
+                if (handles && handles.length > 0) {
+                  handles.shift()
+                  if (handles.length === 0) {
+                    delete this.openNonGeneralHandles[handleKey]
+                  }
+                }
+                this.peer?.stopListeningForCertificatesReceived(listenerId)
               }
-
-              this.openNonGeneralHandles[message.initialNonce!].shift()
-              this.peer?.stopListeningForCertificatesReceived(listenerId)
             })
-          this.log('debug', 'listenForCertificatesReceived registered', { listenerId })
+          this.log('debug', 'listenForCertificatesReceived registered', { listenerId, handleKey })
         }
 
         if (this.messageCallback) {
@@ -397,53 +501,21 @@ export class ExpressTransport implements Transport {
                 this.peer?.stopListeningForGeneralMessages(listenerId)
                 req.auth = { identityKey: senderPublicKey }
 
-                let responseStatus = 200
-                let responseHeaders = {}
-                let responseBody: number[] = []
+                // Use ResponseWriterWrapper for cleaner state management
+                const wrapper = new ResponseWriterWrapper(res)
 
-                // Override methods after checking res is clear
-                this.checkRes(res, 'needs to be clear', next)
-                  ; (res as any).__status = res.status
-                res.status = (n) => {
-                  responseStatus = n
-                  return res // Return res for chaining
-                }
+                // Track if response has been built and sent
+                let responseSent = false
 
-                  ; (res as any).__set = res.set
-                  ; (res as any).set = (keyOrHeaders, value) => {
-                    if (typeof keyOrHeaders === 'object' && keyOrHeaders !== null) {
-                      // Handle setting multiple headers with an object
-                      for (const [key, val] of Object.entries(keyOrHeaders)) {
-                        if (typeof key !== 'string') {
-                          throw new TypeError(
-                            `Header name must be a string, received: ${typeof key}`
-                          )
-                        }
-                        responseHeaders[key.toLowerCase()] = String(val) // Ensure value is a string
-                      }
-                    } else if (typeof keyOrHeaders === 'string') {
-                      // Handle setting a single header
-                      if (typeof value === 'undefined') {
-                        throw new TypeError(
-                          'Value must be provided when setting a single header'
-                        )
-                      }
-                      responseHeaders[keyOrHeaders.toLowerCase()] = String(value) // Ensure value is a string
-                    } else {
-                      throw new TypeError(
-                        'Invalid arguments: res.set expects a string or an object'
-                      )
-                    }
+                const buildAndSendResponse = async (): Promise<void> => {
+                  if (responseSent) return
+                  responseSent = true
 
-                    return res // Return res for chaining
-                  }
-
-                const buildResponse = async (): Promise<void> => {
-                  const payload = buildResponsePayload(
+                  const responsePayload = buildResponsePayload(
                     requestId,
-                    responseStatus,
-                    responseHeaders,
-                    responseBody,
+                    wrapper.getStatusCode(),
+                    wrapper.getHeaders(),
+                    wrapper.getBody(),
                     req,
                     this.logger,
                     this.logLevel
@@ -451,72 +523,106 @@ export class ExpressTransport implements Transport {
                   this.openGeneralHandles[requestId] = { res, next }
                   this.log('debug', `Sending general message response`, {
                     requestId,
-                    responseStatus,
-                    responseHeaders,
-                    responseBodyLength: responseBody.length
+                    responseStatus: wrapper.getStatusCode(),
+                    responseHeaders: wrapper.getHeaders(),
+                    responseBodyLength: wrapper.getBody().length
                   })
-                  await this.peer?.toPeer(payload, req.headers['x-bsv-auth-identity-key'] as string)
+                  await this.peer?.toPeer(responsePayload, req.headers['x-bsv-auth-identity-key'] as string)
                 }
+
+                // Override methods to capture response data
+                this.checkRes(res, 'needs to be clear', next)
+                  ; (res as any).__status = res.status
+                res.status = (n) => {
+                  wrapper.status(n)
+                  return res
+                }
+
+                  ; (res as any).__set = res.set
+                  ; (res as any).set = (keyOrHeaders: string | Record<string, string>, value?: string) => {
+                    wrapper.set(keyOrHeaders, value)
+                    return res
+                  }
 
                   ; (res as any).__send = res.send
                   ; (res as any).send = (val: any) => {
-                    // If the value is an object and no content-type is set, assume JSON
-                    if (
-                      typeof val === 'object' &&
-                      val !== null &&
-                      !responseHeaders['content-type']
-                    ) {
-                      res.set('content-type', 'application/json')
+                    if (typeof val === 'object' && val !== null && !wrapper.getHeaders()['content-type']) {
+                      wrapper.set('content-type', 'application/json')
                     }
-
-                    responseBody = convertValueToArray(val, responseHeaders)
-                    buildResponse()
+                    wrapper.send(val)
+                    buildAndSendResponse()
+                    return res
                   }
+
                   ; (res as any).__json = res.json
-                  ; (res as any).json = (obj) => {
-                    if (!responseHeaders['content-type']) {
-                      res.set('content-type', 'application/json')
-                    }
-                    responseBody = Utils.toArray(JSON.stringify(obj), 'utf8')
-                    buildResponse()
+                  ; (res as any).json = (obj: any) => {
+                    wrapper.json(obj)
+                    buildAndSendResponse()
+                    return res
                   }
 
-                  ; (res as any).text = (str) => {
-                    if (!responseHeaders['content-type']) {
-                      res.set('content-type', 'text/plain')
-                    }
-                    responseBody = Utils.toArray(str, 'utf8')
-                    buildResponse()
+                  ; (res as any).__text = (res as any).text
+                  ; (res as any).text = (str: string) => {
+                    wrapper.text(str)
+                    buildAndSendResponse()
+                    return res
                   }
 
                   ; (res as any).__end = res.end
                   ; (res as any).end = () => {
-                    buildResponse()
+                    buildAndSendResponse()
+                    return res
                   }
 
                   ; (res as any).__sendFile = res.sendFile
-                  ; (res as any).sendFile = (path, options, callback) => {
+                  ; (res as any).sendFile = (path: string, options?: any, callback?: Function) => {
                     fs.readFile(path, (err, data) => {
                       if (err) {
                         this.log('error', `Error reading file in sendFile`, { error: err.message })
                         if (callback) return callback(err)
-                        res.status(500)
-                        return buildResponse()
+                        wrapper.status(500)
+                        buildAndSendResponse()
+                        return
                       }
 
                       const mimeType = mime.lookup(path) || 'application/octet-stream'
-                      res.set('Content-Type', mimeType)
-                      responseBody = Array.from(data)
-                      buildResponse()
+                      wrapper.set('Content-Type', mimeType)
+                      wrapper.send(Array.from(data))
+                      buildAndSendResponse()
                     })
                   }
 
-                if (
-                  this.peer?.certificatesToRequest?.certifiers?.length &&
-                  Object.keys(this.openNextHandlers[senderPublicKey] || {}).length > 0
-                ) {
-                  this.openNextHandlers[senderPublicKey] = next;
+                // Check if we need certificates AND don't already have a session with validated certificates
+                const hasSession = this.peer?.sessionManager.hasSession(senderPublicKey) ?? false
+                const needsCertificates = this.peer?.certificatesToRequest?.certifiers?.length
+                this.log('debug', 'Checking if we need to wait for certificates', {
+                  senderPublicKey,
+                  hasSession,
+                  needsCertificates,
+                  openNextHandlersKeys: Object.keys(this.openNextHandlers)
+                })
+
+                if (needsCertificates && !hasSession) {
+                  // Store next to be called when certificates arrive
+                  this.log('debug', 'Storing next handler to wait for certificates', { senderPublicKey })
+                  this.openNextHandlers[senderPublicKey] = next
+
+                  // Add timeout to prevent indefinite hanging
+                  const CERTIFICATE_TIMEOUT_MS = 30000
+                  setTimeout(() => {
+                    if (this.openNextHandlers[senderPublicKey]) {
+                      this.log('warn', 'Certificate request timed out', { senderPublicKey })
+                      delete this.openNextHandlers[senderPublicKey]
+                      wrapper.status(408).json({
+                        status: 'error',
+                        code: 'CERTIFICATE_TIMEOUT',
+                        message: 'Certificate request timed out'
+                      })
+                      buildAndSendResponse()
+                    }
+                  }, CERTIFICATE_TIMEOUT_MS)
                 } else {
+                  this.log('debug', 'Calling next() immediately - no certificate wait needed', { senderPublicKey, hasSession })
                   next()
                 }
               }
