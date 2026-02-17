@@ -16,7 +16,7 @@ export interface RequestedCertificateSet {
 
 describe('AuthFetch and AuthExpress Certificates Tests', () => {
   const privKey = PrivateKey.fromRandom()
-  let server: Server
+  let server: Server & { ready: Promise<void> }
   let sockets: any[] = []
 
   beforeAll(async () => {
@@ -40,14 +40,24 @@ describe('AuthFetch and AuthExpress Certificates Tests', () => {
         server.once('error', reject)
       }
     })
+    // Wait for async certificate seeding to finish before tests run
+    await server.ready
   })
 
   afterAll(async () => {
-    sockets.forEach(socket => socket.destroy())
-    await new Promise<void>((resolve) => {
-      server.close(() => {
-        resolve()
-      })
+    if (typeof (server as any).closeAllConnections === 'function') {
+      (server as any).closeAllConnections()
+    } else {
+      sockets.forEach(s => { if (!s.destroyed) s.destroy() })
+    }
+    sockets = []
+
+    if (!server.listening) return
+
+    await new Promise<void>((resolve, reject) => {
+      server.once('close', () => resolve())
+      server.once('error', reject)
+      server.close()
     })
   })
 
@@ -76,10 +86,10 @@ describe('AuthFetch and AuthExpress Certificates Tests', () => {
   }, 30000)
 
 
-test('Test 16: Simple POST on /cert-protected-endpoint', async () => {
-  const walletWithCerts = new MockWallet(privKey)
+  test('Test 16: Simple POST on /cert-protected-endpoint', async () => {
+    const walletWithCerts = new MockWallet(privKey)
 
-   const certifierPrivateKey = PrivateKey.fromHex('5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef')
+    const certifierPrivateKey = PrivateKey.fromHex('5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef')
     const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
     const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
     const fields = { firstName: 'Alice', lastName: 'Doe' }
@@ -91,23 +101,23 @@ test('Test 16: Simple POST on /cert-protected-endpoint', async () => {
       certificateType
     )
     walletWithCerts.addMasterCertificate(masterCert)
-  const authFetch = new AuthFetch(walletWithCerts)
-  let res
-  try {
-   res = await authFetch.fetch(
-    'http://localhost:3001/cert-protected-endpoint', { method: 'POST',  headers: {
+    const authFetch = new AuthFetch(walletWithCerts)
+    let res
+    try {
+      res = await authFetch.fetch(
+        'http://localhost:3001/cert-protected-endpoint', {
+        method: 'POST', headers: {
           'content-type': 'application/json'
         },
-        body: JSON.stringify({ message: 'Hello protected Route!' })} )
-      } catch (error) {
-        console.error('Error during fetch:', error)
-      }
-      expect(res!.status).toBe(200)
-      const body = await res!.text()
-      expect(body).toBeDefined()
-      console.log(body)
-  
-}, 300000)
+        body: JSON.stringify({ message: 'Hello protected Route!' })
+      })
+    } catch (error) {
+      console.error('Error during fetch:', error)
+    }
+    expect(res!.status).toBe(200)
+    const body = await res!.text()
+    expect(body).toBeDefined()
+    console.log(body)
 
-
+  }, 300000)
 })
