@@ -382,4 +382,84 @@ describe('AuthFetch and AuthExpress Integration Tests', () => {
     expect(jsonResponse).toBeDefined()
   })
 
+  test('Test 14: Stale-session recovery after server-side session reset', async () => {
+    const walletWithRequests = new MockWallet(privKey)
+    const authFetch = new AuthFetch(walletWithRequests)
+
+    // 1. Establish a session with a successful request
+    const firstResponse = await authFetch.fetch('http://localhost:3000/custom-headers', {
+      method: 'GET',
+      headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
+    })
+    expect(firstResponse.status).toBe(200)
+
+    // 2. Clear server-side sessions (simulates server restart / scaling event)
+    const clearResponse = await fetch('http://localhost:3000/__clear-auth-sessions', { method: 'POST' })
+    expect(clearResponse.status).toBe(200)
+
+    // 3. Second request should recover automatically (re-handshake) instead of hanging
+    const secondRequestPromise = authFetch.fetch('http://localhost:3000/custom-headers', {
+      method: 'GET',
+      headers: { 'x-bsv-custom-header': 'CustomHeaderValue' }
+    })
+
+    const outcome = await Promise.race([
+      secondRequestPromise
+        .then((res) => ({ tag: 'resolved' as const, response: res }))
+        .catch((error: unknown) => {
+          if (error instanceof Error) return { tag: 'rejected' as const, message: error.message }
+          return { tag: 'rejected' as const, message: String(error) }
+        }),
+      new Promise<{ tag: 'timeout' }>(resolve => {
+        const t = setTimeout(() => resolve({ tag: 'timeout' }), 10000)
+        if (typeof t.unref === 'function') t.unref()
+      })
+    ])
+
+    // Should NOT timeout — the client should detect the stale session and retry
+    expect(outcome.tag).not.toBe('timeout')
+
+    // Should recover and succeed
+    expect(outcome.tag).toBe('resolved')
+    if (outcome.tag === 'resolved') {
+      expect(outcome.response.status).toBe(200)
+    }
+  })
+
+  test('Test 15: Multiple sequential requests survive a mid-session server reset', async () => {
+    const walletWithRequests = new MockWallet(privKey)
+    const authFetch = new AuthFetch(walletWithRequests)
+
+    // First request — establishes session
+    const r1 = await authFetch.fetch('http://localhost:3000/other-endpoint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'before reset' })
+    })
+    expect(r1.status).toBe(200)
+
+    // Clear sessions
+    const clearResponse = await fetch('http://localhost:3000/__clear-auth-sessions', { method: 'POST' })
+    expect(clearResponse.status).toBe(200)
+
+    // Second request — should recover via re-handshake
+    const r2 = await authFetch.fetch('http://localhost:3000/other-endpoint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'after reset' })
+    })
+    expect(r2.status).toBe(200)
+    const body2 = await r2.json()
+    expect(body2).toBeDefined()
+
+    // Third request — should work on the fresh session
+    const r3 = await authFetch.fetch('http://localhost:3000/other-endpoint', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message: 'after recovery' })
+    })
+    expect(r3.status).toBe(200)
+    const body3 = await r3.json()
+    expect(body3).toBeDefined()
+  })
 })

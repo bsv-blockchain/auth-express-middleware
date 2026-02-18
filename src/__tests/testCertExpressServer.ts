@@ -9,7 +9,7 @@ import { createAuthMiddleware } from '../index'
 
 // Create Express app instance
 // Export a function to start the server programmatically
-export const startCertServer = (port = 3001): ReturnType<typeof app.listen> => {
+export const startCertServer = (port = 3001): ReturnType<typeof app.listen> & { ready: Promise<void> } => {
   const app = express()
 
   // Middleware setup
@@ -28,8 +28,8 @@ export const startCertServer = (port = 3001): ReturnType<typeof app.listen> => {
   const privKey = new PrivateKey(2)
   const mockWallet = new MockWallet(privKey);
 
-  // Asynchronous setup for certificates and middleware
-  (async () => {
+  // Asynchronous setup for certificates — exposed as server.ready
+  const ready = (async () => {
     const certifierPrivateKey = PrivateKey.fromHex('5a4d867377bd44eba1cecd0806c16f24e293f7e218c162b1177571edaeeaecef')
     const certifierWallet = new CompletedProtoWallet(certifierPrivateKey)
     const certificateType = 'z40BOInXkI8m7f/wBrv4MJ09bZfzZbTj2fJqCtONqCY='
@@ -42,7 +42,7 @@ export const startCertServer = (port = 3001): ReturnType<typeof app.listen> => {
       certificateType
     )
     mockWallet.addMasterCertificate(masterCert)
-  })().catch(e => console.error(e))
+  })()
 
   // This allows the API to be used everywhere when CORS is enforced
   app.use((req, res, next) => {
@@ -65,13 +65,13 @@ export const startCertServer = (port = 3001): ReturnType<typeof app.listen> => {
     res.status(200).send({ message: 'Non auth endpoint!' })
   })
 
-  let certsreceived: VerifiableCertificate []
+  let certsreceived: VerifiableCertificate[]
 
   const authMiddleware = createAuthMiddleware({
     allowUnauthenticated: false,
     wallet: mockWallet,
     onCertificatesReceived: async (_senderPublicKey: string, certs: VerifiableCertificate[], req: Request, res: Response, next: NextFunction) => {
-        certsreceived = certs
+      certsreceived = certs
       console.log('Certificates received:', certs)
     },
     certificatesToRequest
@@ -84,17 +84,19 @@ export const startCertServer = (port = 3001): ReturnType<typeof app.listen> => {
     res.send('Hello, world!')
   })
 
-  app.post('/cert-protected-endpoint', async  (req: Request, res: Response) => {
-  console.log('Received POST body:', req.body)
-  //wait a moment for the certificates to be received
-  new Promise(resolve => setTimeout(resolve, 5000)).then(() => {
+  app.post('/cert-protected-endpoint', async (req: Request, res: Response) => {
+    console.log('Received POST body:', req.body)
+    //wait a moment for the certificates to be received
+    await new Promise(resolve => {
+      const t = setTimeout(resolve, 5000)
+      if (typeof t.unref === 'function') t.unref()
+    })
     if (certsreceived) {
-      console.log('Certificates received in POST:', certsreceived)   
-      res.status(200).send({ message: 'You have certs!' })}
-    else {
-        res.status(401).send({ message: 'You must have certs!' })
+      console.log('Certificates received in POST:', certsreceived)
+      res.status(200).send({ message: 'You have certs!' })
+    } else {
+      res.status(401).send({ message: 'You must have certs!' })
     }
-})
   })
 
   // Fallback for 404 errors
@@ -106,9 +108,11 @@ export const startCertServer = (port = 3001): ReturnType<typeof app.listen> => {
     })
   })
 
-  return app.listen(port, () => {
+  const server = app.listen(port, () => {
     console.log(`Server is running on http://localhost:${port}`)
-  })
+  }) as ReturnType<typeof app.listen> & { ready: Promise<void> }
+  server.ready = ready
+  return server
 }
 // For testing independently of integration tests:
 // startServer()

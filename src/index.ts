@@ -185,6 +185,7 @@ export class ExpressTransport implements Transport {
   openNonGeneralHandles: Record<string, Array<{ res: Response, next: Function }>> = {}
   openGeneralHandles: Record<string, { next: Function, res: Response }> = {}
   openNextHandlers: Record<string, NextFunction> = {}
+  openNextHandlerTimeouts: Record<string, ReturnType<typeof setTimeout>> = {}
 
   private messageCallback?: (message: AuthMessage) => Promise<void>
   private readonly logger: typeof console | undefined
@@ -450,6 +451,11 @@ export class ExpressTransport implements Transport {
 
                   const nextFn = this.openNextHandlers[message.identityKey]
                   if (typeof nextFn === 'function') {
+                    const timeoutHandle = this.openNextHandlerTimeouts[message.identityKey]
+                    if (timeoutHandle != null) {
+                      clearTimeout(timeoutHandle)
+                      delete this.openNextHandlerTimeouts[message.identityKey]
+                    }
                     nextFn()
                     delete this.openNextHandlers[message.identityKey]
                   }
@@ -511,23 +517,38 @@ export class ExpressTransport implements Transport {
                   if (responseSent) return
                   responseSent = true
 
-                  const responsePayload = buildResponsePayload(
-                    requestId,
-                    wrapper.getStatusCode(),
-                    wrapper.getHeaders(),
-                    wrapper.getBody(),
-                    req,
-                    this.logger,
-                    this.logLevel
-                  )
-                  this.openGeneralHandles[requestId] = { res, next }
-                  this.log('debug', `Sending general message response`, {
-                    requestId,
-                    responseStatus: wrapper.getStatusCode(),
-                    responseHeaders: wrapper.getHeaders(),
-                    responseBodyLength: wrapper.getBody().length
-                  })
-                  await this.peer?.toPeer(responsePayload, req.headers['x-bsv-auth-identity-key'] as string)
+                  try {
+                    const responsePayload = buildResponsePayload(
+                      requestId,
+                      wrapper.getStatusCode(),
+                      wrapper.getHeaders(),
+                      wrapper.getBody(),
+                      req,
+                      this.logger,
+                      this.logLevel
+                    )
+                    this.openGeneralHandles[requestId] = { res, next }
+                    this.log('debug', `Sending general message response`, {
+                      requestId,
+                      responseStatus: wrapper.getStatusCode(),
+                      responseHeaders: wrapper.getHeaders(),
+                      responseBodyLength: wrapper.getBody().length
+                    })
+                    await this.peer?.toPeer(responsePayload, req.headers['x-bsv-auth-identity-key'] as string)
+                  } catch (err) {
+                    delete this.openGeneralHandles[requestId]
+                    this.log('error', `Failed to build and send authenticated response`, { error: err })
+                    try {
+                      const restored = this.resetRes(res, next)
+                      restored.status(500).json({
+                        status: 'error',
+                        code: 'ERR_RESPONSE_SIGNING_FAILED',
+                        description: err instanceof Error ? err.message : 'Failed to sign response'
+                      })
+                    } catch (_) {
+                      // Response may already be partially sent
+                    }
+                  }
                 }
 
                 // Override methods to capture response data
@@ -605,14 +626,20 @@ export class ExpressTransport implements Transport {
                 if (needsCertificates && !hasSession) {
                   // Store next to be called when certificates arrive
                   this.log('debug', 'Storing next handler to wait for certificates', { senderPublicKey })
+                  const existingTimeout = this.openNextHandlerTimeouts[senderPublicKey]
+                  if (existingTimeout != null) {
+                    clearTimeout(existingTimeout)
+                    delete this.openNextHandlerTimeouts[senderPublicKey]
+                  }
                   this.openNextHandlers[senderPublicKey] = next
 
                   // Add timeout to prevent indefinite hanging
                   const CERTIFICATE_TIMEOUT_MS = 30000
-                  setTimeout(() => {
+                  const timeoutHandle = setTimeout(() => {
                     if (this.openNextHandlers[senderPublicKey]) {
                       this.log('warn', 'Certificate request timed out', { senderPublicKey })
                       delete this.openNextHandlers[senderPublicKey]
+                      delete this.openNextHandlerTimeouts[senderPublicKey]
                       wrapper.status(408).json({
                         status: 'error',
                         code: 'CERTIFICATE_TIMEOUT',
@@ -621,6 +648,7 @@ export class ExpressTransport implements Transport {
                       buildAndSendResponse()
                     }
                   }, CERTIFICATE_TIMEOUT_MS)
+                  this.openNextHandlerTimeouts[senderPublicKey] = timeoutHandle
                 } else {
                   this.log('debug', 'Calling next() immediately - no certificate wait needed', { senderPublicKey, hasSession })
                   next()
@@ -638,12 +666,15 @@ export class ExpressTransport implements Transport {
             // Note: The requester may want more detailed error handling
             this.log('debug', `Invoking stored messageCallback for general message`)
             this.messageCallback(message).catch((err) => {
-              this.log('error', `Error in messageCallback (general message)`, { error: err.message })
-              return res.status(500).json({
-                status: 'error',
-                code: 'ERR_INTERNAL_SERVER_ERROR',
-                description: err.message || 'An unknown error occurred.'
-              })
+              const msg = err instanceof Error ? err.message : String(err)
+              const isAuthError = /nonce|signature|session|auth version/i.test(msg)
+              this.log('error', `Error in messageCallback (general message)`, { error: msg, isAuthError })
+              const statusCode = isAuthError ? 401 : 500
+              const code = isAuthError ? 'ERR_AUTH_FAILED' : 'ERR_INTERNAL_SERVER_ERROR'
+              const description = isAuthError
+                ? (msg || 'Authentication failed.')
+                : (msg || 'An unexpected error occurred.')
+              return res.status(statusCode).json({ status: 'error', code, description })
             })
           }
         } else {

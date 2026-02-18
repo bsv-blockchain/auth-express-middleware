@@ -1,6 +1,6 @@
 import express, { Request, Response, NextFunction } from 'express'
 import bodyParser from 'body-parser'
-import { CompletedProtoWallet, MasterCertificate, PrivateKey, RequestedCertificateSet, VerifiableCertificate } from '@bsv/sdk'
+import { CompletedProtoWallet, MasterCertificate, PrivateKey, RequestedCertificateSet, SessionManager, VerifiableCertificate } from '@bsv/sdk'
 import { MockWallet } from './MockWallet'
 import { createAuthMiddleware } from '../index'
 import { Server, createServer } from 'http'
@@ -28,6 +28,7 @@ export const startServer = (port = 3000): Server => {
 
   const privKey = new PrivateKey(1)
   const mockWallet = new MockWallet(privKey);
+  const sessionManager = new SessionManager();
 
   // Asynchronous setup for certificates and middleware
   (async () => {
@@ -66,9 +67,29 @@ export const startServer = (port = 3000): Server => {
     res.status(200).send({ message: 'Non auth endpoint!' })
   })
 
+  // Test-only route to emulate "different instance" behavior by dropping in-memory auth sessions.
+  app.post('/__clear-auth-sessions', (_req: Request, res: Response) => {
+    const manager = sessionManager as any
+    const sessionNonceToSession: Map<string, unknown> | undefined = manager.sessionNonceToSession
+    const identityKeyToNonces: Map<string, unknown> | undefined = manager.identityKeyToNonces
+
+    const beforeSessionCount = sessionNonceToSession?.size ?? 0
+    const beforeIdentityCount = identityKeyToNonces?.size ?? 0
+
+    sessionNonceToSession?.clear()
+    identityKeyToNonces?.clear()
+
+    res.status(200).json({
+      ok: true,
+      beforeSessionCount,
+      beforeIdentityCount
+    })
+  })
+
   const authMiddleware = createAuthMiddleware({
     allowUnauthenticated: false,
     wallet: mockWallet,
+    sessionManager,
     onCertificatesReceived: (_senderPublicKey: string, certs: VerifiableCertificate[], req: Request, res: Response, next: NextFunction) => {
       console.log('Certificates received:', certs)
     },
