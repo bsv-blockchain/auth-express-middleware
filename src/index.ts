@@ -638,12 +638,8 @@ export class ExpressTransport implements Transport {
             // Note: The requester may want more detailed error handling
             this.log('debug', `Invoking stored messageCallback for general message`)
             this.messageCallback(message).catch((err) => {
-              this.log('error', `Error in messageCallback (general message)`, { error: err.message })
-              return res.status(500).json({
-                status: 'error',
-                code: 'ERR_INTERNAL_SERVER_ERROR',
-                description: err.message || 'An unknown error occurred.'
-              })
+              this.log('error', `Error in messageCallback (general message) - peer.fromPeer threw before res was hijacked, so auth headers cannot be added to this error response. The Go client will report "missing version header" instead of this real error.`, { error: err.message, stack: err.stack })
+              next(err)
             })
           }
         } else {
