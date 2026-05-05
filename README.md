@@ -1,5 +1,9 @@
 # @bsv/auth-express-middleware
 
+> **⚠️ This repository is being archived.**
+>
+> Development has moved to the [ts-stack monorepo](https://github.com/bsv-blockchain/ts-stack/tree/main/packages/middleware/auth-express-middleware). Open issues will be migrated there. This repository will be archived in the coming days — please open new issues and PRs in the monorepo going forward.
+
 An **Express.js** middleware that implements **BRC-103** [Peer-to-Peer Mutual Authentication](https://github.com/bitcoin-sv/BRCs/blob/master/peer-to-peer/0103.md) via **BRC-104** [HTTP Transport](https://github.com/bitcoin-sv/BRCs/blob/master/peer-to-peer/0103.md). This library makes it easy to **mutually authenticate** and exchange **verifiable certificates** between clients and servers in a standardized way.
 
 By layering **BRC-103** on top of Express, you can:
